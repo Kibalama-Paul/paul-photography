@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>My Portfolio</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    /* Background Image with Cover */
+    background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    height: 100vh;
+  }
+
+  /* Overlay for darkening background if needed */
+  body::before {
+    content: "";
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.3);
+    z-index: -1;
+  }
+
+  /* Navigation Buttons Container */
+  .nav-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Neumorphic Transparent Buttons */
+  .neumorphic-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    background: rgba(224, 224, 224, 0.3);
+    box-shadow: 8px 8px 15px rgba(190,190,190,0.5), -8px -8px 15px rgba(255,255,255,0.3);
+    text-decoration: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1em;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .neumorphic-btn:hover {
+    box-shadow: 4px 4px 10px rgba(190,190,190,0.3), -4px -4px 10px rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+  }
+
+  /* Main Content with Glassmorphism */
+  .content {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header Style */
+  h1 {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 2.5em;
+    color: #fff;
+  }
+
+  /* Profile Section Layout */
+  .profile-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+
+  .profile-image {
+    flex: 1 1 200px;
+    max-width: 300px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+
+  .profile-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 20px;
+  }
+
+  .bio {
+    flex: 2 1 400px;
+    color: #fff;
+  }
+
+  /* Skills & Experience */
+  h2 {
+    margin-top: 30px;
+    color: #fff;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    background: rgba(255,255,255,0.3);
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 10px;
+    color: #fff;
+  }
+
+  /* Video Section */
+  .video-section {
+    margin: 30px 0;
+  }
+
+  .video-section video {
+    width: 100%;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+
+  /* Social Media Buttons */
+  .social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px 0;
+  }
+
+  .social-icon {
+    padding: 10px 15px;
+    border-radius: 12px;
+    background: rgba(224, 224, 224, 0.3);
+    box-shadow: 8px 8px 15px rgba(190,190,190,0.5), -8px -8px 15px rgba(255,255,255,0.3);
+    text-decoration: none;
+    color: #fff;
+    font-weight: 600;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .social-icon:hover {
+    box-shadow: 4px 4px 10px rgba(190,190,190,0.3), -4px -4px 10px rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+  }
+
+  /* Responsive adjustments */
+  @media(max-width: 768px){
+    .profile-section {
+      flex-direction: column;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation Buttons -->
+<div class="nav-buttons">
+  <a href="index.html" class="neumorphic-btn">Home</a>
+  <a href="bookings.html" class="neumorphic-btn">Book Now</a>
+</div>
+
+<!-- Main Content with Glassmorphism & Background Image -->
+<div class="content">
+  <h1>KIBALAMA PAUL (CEO)</h1>
+  <!-- Profile Image and Bio -->
+  <div class="profile-section">
+    <div class="profile-image">
+      <img id="profileImg" src="img and vid/MINE/OBI_8725.jpg" alt="Profile" />
+    </div>
+    <div class="bio">
+      <h2>About Me</h2>
+      <p>Hello! I'm Kibalama Paul, a passionate photographer with over 10 years of experience capturing life's beautiful moments. I specialize in portrait, landscape, and event photography, delivering exceptional quality and creativity.</p>
+    </div>
+  </div>
+
+  <!-- Skills -->
+  <h2>Skills</h2>
+  <ul>
+    <li>Portrait Photography</li>
+    <li>Landscape Photography</li>
+    <li>Event Photography</li>
+    <li>Photo Editing & Retouching</li>
+    <li>Studio Lighting</li>
+    <li>Cinematography</li>
+    <li>Graphics Editing</li>
+    <li>UI & UX Designer</li>
+    <li>IT Personnel</li>
+    <li>Motion Image Colorist</li>
+  </ul>
+
+  <!-- Work Experience -->
+  <h2>Work Experience</h2>
+  <ul>
+    <li>Senior Photographer at BUGEMA UNIVERSITY MEDIA (2023- Present)</li>
+    <li>Cinematographer at Nezer Studio (2016 - Present)</li>
+    <li>Freelance Photographer (2016 - 2022)</li>
+    <li>Photography Workshop Instructor (2016 - 2020)</li>
+  </ul>
+
+  <!-- Video -->
+  <div class="video-section">
+    <h2>My Work in Action</h2>
+    <video controls autoplay muted loop>
+      <source src="img and vid/GALLERY/POST COLOR GRADING.mp4" type="video/mp4" />
+      Your browser does not support HTML5 video.
+    </video>
+  </div>
+</div>
+
+<!-- Social Media Buttons at the End -->
+<div class="social-icons">
+  <a href="https://www.linkedin.com/in/paul-photography-700861303?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" class="social-icon">LinkedIn</a>
+  <a href="https://www.facebook.com/kibalama.paul.94" target="_blank" class="social-icon">Facebook</a>
+  <a href="https://www.instagram.com/paul_photography256?igsh=MWk4MW04b2hreWJwYQ==" target="_blank" class="social-icon">Instagram</a>
+  <a href="https://www.tiktok.com/@paulphotography256?_t=ZM-8whyFA0vtdo&_r=1" target="_blank" class="social-icon">TikTok</a>
+  <a href="Message Paul Photography on WhatsApp. https://wa.me/256757460297" target="_blank" class="social-icon">WhatsApp</a>
+  <a href="https://youtube.com/@paulphotography256?si=D0AT51krGUbT07LV" target="_blank" class="social-icon">YouTube</a>
+</div>
+
+<script>
+  // Array of profile images
+  const images = [
+    "img and vid/MINE/OBI_8725.jpg",
+    // Add more image URLs here if you want to rotate more images
+    "img and vid/MINE/_MG_2308.jpg",
+    "img and vid/MINE/IMG_9943.jpg",
+    "img and vid/MINE/_MG_0860.jpg",
+    "img and vid/MINE/_PIT9552.jpg",
+    "img and vid/MINE/IMG_0154.jpg",
+     "img and vid/MINE/OBI_8756.jpg",
+  ];
+
+  let currentImageIndex = 0;
+  const profileImg = document.getElementById('profileImg');
+
+  // Function to change image every 2 seconds
+  setInterval(() => {
+    currentImageIndex = (currentImageIndex + 1) % images.length;
+    profileImg.src = images[currentImageIndex];
+  }, 2000);
+</script>
+</body>
+</html>
