@@ -1,5 +1,6 @@
 /* Reset & Base Styles */
-* {
+*
+ {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -292,4 +293,9 @@ ul {
     4px 4px 10px #bebebe,
     -4px -4px 10px #ffffff;
   transform: translateY(-2px);
+}
+.logo-img {
+  background-color: #222;
+  padding: 4px;
+  border-radius: 8px;
 }

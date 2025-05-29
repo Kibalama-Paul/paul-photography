@@ -1,62 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Paul Photography - Book a Photoshoot</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Paul Photography - Book a Photoshoot</title>
+  <style>
+    /* Reset & Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #e0e5ec; /* soft pastel background for neumorphism */
+      color: #000;
+      overflow-x: hidden;
+    }
+
+    /* Background Video (keep it full cover) */
+    .video-background video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+
+    /* Navigation Bar - Neumorphic & Glassmorphic style */
+    .navbar {
+      display: flex;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 15px 0;
+      backdrop-filter: blur(10px);
+      box-shadow: inset -4px -4px 8px #ffffff, inset 4px 4px 8px #d1d9e6; /* subtle inset shadows for neumorphism */
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .navbar ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .navbar a {
+      text-decoration: none;
+      font-weight: 600;
+      color: #222;
+      font-size: 16px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.2);
+      box-shadow: 4px 4px 8px #d1d9e6, -4px -4px 8px #ffffff; /* neumorphic button effect */
+      transition: all 0.3s ease;
+    }
+
+    .navbar a:hover {
+      background: rgba(255,255,255,0.3);
+      box-shadow: inset 2px 2px 4px #d1d9e6, inset -2px -2px 4px #ffffff; /* inset hover effect */
+    }
+
+    /* Booking Form - Glassmorphic + Neumorphism */
+    .booking-form {
+      max-width: 600px;
+      width: 90%;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 30px;
+      border-radius: 20px;
+      margin: 100px auto;
+      box-shadow: 8px 8px 20px #d1d9e6, -8px -8px 20px #ffffff; /* neumorphic outer shadow */
+      backdrop-filter: blur(15px);
+    }
+
+    .booking-form h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.8em;
+      color: #222;
+    }
+
+    /* Labels */
+    .booking-form label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+      font-size: 1em;
+      color: #222;
+    }
+
+    /* Inputs & Select - Neumorphic inset effect */
+    .booking-form input,
+    .booking-form select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.2);
+      box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff; /* inset neumorphic effect */
+      font-size: 1em;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    /* Button - Glassmorphic Neumorphism style */
+    .btn {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      margin-top: 20px;
+      font-size: 1em;
+      width: 100%;
+      cursor: pointer;
+      box-shadow: 8px 8px 20px #d1d9e6, -8px -8px 20px #ffffff; /* neumorphic outer shadow */
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255,255,255,0.3);
+      box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff; /* inset hover effect */
+    }
+
+    /* Social media icons */
+    .social-icons {
+      text-align: center;
+      margin: 30px 10px;
+    }
+
+    .social-icons a {
+      display: inline-block;
+      margin: 10px;
+      padding: 10px 15px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 12px;
+      font-size: 14px;
+      box-shadow: 4px 4px 8px #d1d9e6, -4px -4px 8px #ffffff; /* neumorphic effect */
+      transition: all 0.3s ease;
+    }
+
+    .social-icons a:hover {
+      background: rgba(255,255,255,0.3);
+      box-shadow: inset 2px 2px 4px #d1d9e6, inset -2px -2px 4px #ffffff; /* inset hover effect */
+    }
+
+    /* Responsive adjustments for smaller screens */
+    @media(max-width:768px){
+      .navbar {
+        flex-direction: column;
+        align-items: center;
+      }
+      .navbar ul {
+        flex-direction: column;
+        gap: 30px;
+      }
+      .booking-form {
+        margin: 50px 20px;
+      }
+    }
+    @media(max-width:480px){
+      body {
+        padding: 10px;
+      }
+      .booking-form h2 {
+        font-size: 1.5em;
+      }
+      .booking-form input,
+      .booking-form select {
+        padding: 10px;
+        font-size: 0.9em;
+      }
+      .btn {
+        padding: 10px;
+        font-size: 0.9em;
+      }
+      .social-icons a {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+    }
+  </style>
 </head>
 <body>
+
 <!-- Background Video -->
 <div class="video-background">
   <video autoplay muted loop>
-     <source src="img and vid/bedroom.mov" type="video/mp4" />
+    <source src="img and vid/bedroom.mov" type="video/mp4" />
   </video>
 </div>
 
 <!-- Navigation -->
-<nav class="navbar neumorphism">
+<nav class="navbar">
   <ul>
     <li><a href="index.html">Home</a></li>
     <li><a href="gallery.html">Photos by Paul</a></li>
     <li><a href="contact.html">Contact</a></li>
-    <li class="dropdown">
-     
-    </li>
   </ul>
 </nav>
 
 <!-- Booking Form -->
-<div class="booking-form glassmorphism">
+<div class="booking-form">
   <h2>Book Your Photoshoot</h2>
-  <form>
-    <label>Name</label>
-    <input type="text" placeholder="Your Name" required />
-    <label>Email</label>
-    <input type="email" placeholder="Your Email" required />
-    <label>Date & Time</label>
-    <input type="datetime-local" required />
-    <label>Type of Shoot</label>
-    <select required>
+  <form id="whatsappForm">
+    <label for="name">Name</label>
+    <input type="text" id="name" placeholder="Your Name" required />
+
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="Your Email" required />
+
+    <label for="datetime">Date & Time</label>
+    <input type="datetime-local" id="datetime" required />
+
+    <label for="shootType">Type of Shoot</label>
+    <select id="shootType" required>
       <option value="">Select</option>
-      <option value="portrait">Portrait</option>
-      <option value="wedding">Wedding</option>
-      <option value="event">Event</option>
-      <option value="nature">Nature</option>
+      <option value="Portrait">Portrait</option>
+      <option value="Wedding">Wedding</option>
+      <option value="Event">Event</option>
+      <option value="Nature">Nature</option>
     </select>
-    <button type="submit" class="btn">Submit Booking</button>
+
+    <button type="submit" class="btn">Send</button>
   </form>
 </div>
 
-<!-- Social Media -->
-<div class="social-icons">
-  <a href="https://www.linkedin.com/in/paul-photography-700861303?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" class="social-icon">LinkedIn</a>
-  <a href="https://www.facebook.com/kibalama.paul.94" target="_blank" class="social-icon">Facebook</a>
-  <a href="https://www.instagram.com/paul_photography256?igsh=MWk4MW04b2hreWJwYQ==" target="_blank" class="social-icon">Instagram</a>
-  <a href="https://www.tiktok.com/@paulphotography256?_t=ZM-8whyFA0vtdo&_r=1" target="_blank" class="social-icon">TikTok</a>
-  <a href="Message Paul Photography on WhatsApp. https://wa.me/256757460297" target="_blank" class="social-icon">WhatsApp</a>
-  <a href="https://youtube.com/@paulphotography256?si=D0AT51krGUbT07LV" target="_blank" class="social-icon">YouTube</a>
-</div>
+
+<!-- WhatsApp Submission Script -->
+<script>
+  document.getElementById("whatsappForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const datetime = document.getElementById("datetime").value;
+    const shootType = document.getElementById("shootType").value;
+
+    const message = `Hello Paul Photography,%0A%0AI would like to book a photoshoot.%0A%0AName: ${name}%0AEmail: ${email}%0ADate & Time: ${datetime}%0AShoot Type: ${shootType}%0A%0AThank you!`;
+    const whatsappNumber = "256757460297";
+
+    window.open(`https://wa.me/${whatsappNumber}?text=${message}`, "_blank");
+  });
+</script>
 
 </body>
 </html>
