@@ -1,5 +1,89 @@
+
 <!DOCTYPE html>
 <html lang="en">
+ 
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PAUL PHOTOGRAPHY</title>
+<style>
+  /* Styles for the intro overlay */
+  #intro {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000; /* Change as needed */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  /* Container for the logo */
+  .logo-container {
+    width: 150px; /* Adjust size as needed */
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Logo image with spinning animation */
+  .logo {
+    width: 100%;
+    height: auto;
+    /* Spin once over 2s, then stop */
+    animation: spin 2s forwards;
+  }
+
+  /* Spin keyframes */
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Styles for main content (hidden initially) */
+  #main-content {
+    display: none;
+    padding: 20px; /* Example styling */
+  }
+</style>
+</head>
+<body>
+
+<!-- Intro overlay with spinning logo -->
+<div id="intro">
+  <div class="logo-container">
+    <img src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png" alt="Logo" class="logo" />
+  </div>
+</div>
+
+
+
+<script>
+  window.addEventListener('load', () => {
+    const logo = document.querySelector('.logo');
+
+    // When the spin animation ends, ensure the logo stays static
+    logo.addEventListener('animationend', () => {
+      logo.style.animation = 'none';
+      // Optional: reset transform if needed
+      logo.style.transform = 'rotate(360deg)';
+    });
+
+    // After 5 seconds, hide intro and show main content
+    setTimeout(() => {
+      document.getElementById('intro').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }, 5000);
+  });
+</script>
+
+</body>
+</html>
+
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,7 +99,7 @@
 <style>
   body {
     font-family: 'Poppins', sans-serif;
-    background: #e0e5ec;
+    background: #0b0b0b;
     margin: 0;
     padding: 0;
     overflow: hidden; /* prevent scrolling */
