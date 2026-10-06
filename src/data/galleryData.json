@@ -76,7 +76,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599953/IMG_8568_gqhww8.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599951/IMG_8252-Recovered_k1syfe.jpg",
     "title": "Photo Shoot #3",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -92,7 +92,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599965/_MG_1143-Recovered_z8tu7t.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599971/_MG_1145-Recovered_hiyl6n.jpg",
     "title": "Photo Shoot #5",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -108,7 +108,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599966/_MG_2372.jpg_2_rd4pm7.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599966/_MG_2669_ksrepd.jpg",
     "title": "Photo Shoot #7",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -116,7 +116,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599967/_MG_2732_oiwhzn.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599968/_MG_2785_bardyz.jpg",
     "title": "Photo Shoot #8",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -132,7 +132,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599969/_MG_2832_yj5b2x.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599970/_MG_2891_t5ajn6.jpg",
     "title": "Photo Shoot #10",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -148,7 +148,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599972/_O9A9924_hzuw7u.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599971/_O9A9930_yctejm.jpg",
     "title": "Photo Shoot #12",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -156,7 +156,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599972/_PIT8512_hhttqm.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599972/_PIT9187_vxqrx3.jpg",
     "title": "Photo Shoot #13",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -172,7 +172,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599972/_PIT9203_jzd2m6.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599974/_PIT9212_dvoibq.jpg",
     "title": "Photo Shoot #15",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -180,7 +180,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599964/WhatsApp_Image_2024-10-18_at_10.47.17_nb7vsp.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599921/Detty_Studio_2_jex1ga.jpg",
     "title": "Photo Shoot #16",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -196,7 +196,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599924/DSC_023758_RAW_hbxxfu.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599923/Image_1_luukka.jpg",
     "title": "Photo Shoot #18",
-    "category": "events",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -212,7 +212,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599924/IMG_0034_1_f9fdvo.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599924/IMG_0040_cepooj.jpg",
     "title": "Photo Shoot #20",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -228,7 +228,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599930/IMG_0052_nmnwid.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599926/IMG_0070_gaqvey.jpg",
     "title": "Photo Shoot #22",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -236,7 +236,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748621156/IMG_0069_clajtq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599926/IMG_0136_2.jpg_B_W_idq2cd.jpg",
     "title": "Photo Shoot #23",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -268,7 +268,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599929/IMG_0941-Recovered_urcgbv.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599929/IMG_0944-Recovered_wdbwak.jpg",
     "title": "Photo Shoot #27",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -276,7 +276,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599929/IMG_1071_s0a8ic.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599929/IMG_1072_wje0km.jpg",
     "title": "Photo Shoot #28",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -292,7 +292,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599931/IMG_1419-Recovered_r8npqp.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599931/IMG_1426_jcdiom.jpg",
     "title": "Photo Shoot #30",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -308,7 +308,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599932/IMG_1952_cwbpfg.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599931/IMG_1835_qo7pxw.jpg",
     "title": "Photo Shoot #32",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -316,7 +316,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599932/IMG_2063_yifl2x.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599932/IMG_2060-Recovered_2_seowuz.jpg",
     "title": "Photo Shoot #33",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -332,7 +332,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599934/IMG_3825_dtbrdm.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599933/IMG_3829-Recovered_kl0ucd.jpg",
     "title": "Photo Shoot #35",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -348,7 +348,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599935/IMG_5354_wbsm0k.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599936/IMG_5418_j0xqqf.jpg",
     "title": "Photo Shoot #37",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -356,7 +356,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599935/IMG_5737_j73m8j.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599936/IMG_6014_ndsheh.jpg",
     "title": "Photo Shoot #38",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -396,7 +396,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599939/IMG_6300.jpg2_v4xuj8.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599941/IMG_6319_hne3wj.jpg",
     "title": "Photo Shoot #43",
-    "category": "events",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -404,7 +404,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599940/IMG_6307_ych7le.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599941/IMG_6308_iixn5r.jpg",
     "title": "Photo Shoot #44",
-    "category": "portrait",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -412,7 +412,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599947/IMG_6311_vkog0q.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599940/IMG_6312_xbllfm.jpg",
     "title": "Photo Shoot #45",
-    "category": "monochrome",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -420,7 +420,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599941/IMG_6314_o9y9o2.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599971/_MG_7696_hvryb6.jpg",
     "title": "Photo Shoot #46",
-    "category": "portrait",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -436,7 +436,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599945/IMG_6962_1_2.jpg_2_jrypcq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599943/IMG_6563.jpg_b_w_hicj44.jpg",
     "title": "Photo Shoot #48",
-    "category": "monochrome",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -452,7 +452,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599971/_MG_9467_rghrdz.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599947/IMG_7008_3_j16jnr.jpg",
     "title": "Photo Shoot #50",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -468,7 +468,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599945/IMG_7051_eugkor.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599946/IMG_7053_ylksbe.jpg",
     "title": "Photo Shoot #52",
-    "category": "studio",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -484,7 +484,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599947/IMG_7072_wttgpq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599947/IMG_7081_yyoc4x.jpg",
     "title": "Photo Shoot #54",
-    "category": "portrait",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -492,7 +492,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599949/IMG_7334_ypnkej.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599949/IMG_7336_soukdo.jpg",
     "title": "Photo Shoot #55",
-    "category": "monochrome",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -500,7 +500,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599949/IMG_7339_ffddqb.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599949/IMG_7347_bbkxvt.jpg",
     "title": "Photo Shoot #56",
-    "category": "portrait",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -508,7 +508,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599455/IMG_7368_j3tyvu.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599949/IMG_7561_q8zh6x.jpg",
     "title": "Photo Shoot #57",
-    "category": "studio",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -524,7 +524,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599950/IMG_7929_lis4t9.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599951/IMG_7918_extfhx.jpg",
     "title": "Photo Shoot #59",
-    "category": "portrait",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -532,7 +532,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599952/IMG_7945_ldguzq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599951/IMG_7956_yzfq3o.jpg",
     "title": "Photo Shoot #60",
-    "category": "monochrome",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -540,7 +540,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599951/IMG_7963_vq5vzi.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599926/IMG_0086_syxj3p.jpg",
     "title": "Photo Shoot #61",
-    "category": "portrait",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -548,7 +548,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599953/IMG_8836_keelti.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599952/IMG_9851_qnrzih.jpg",
     "title": "Photo Shoot #62",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -556,7 +556,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599954/IMG_9884_dzzcwe.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599953/IMG_9876_w8whzj.jpg",
     "title": "Photo Shoot #63",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -572,7 +572,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599954/IMG_9980_heqrmq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599954/IMG_9889_xdtdzj.jpg",
     "title": "Photo Shoot #65",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -588,7 +588,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599954/IMG_9871_jva9lr.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599975/OBI_8756_rgpico.jpg",
     "title": "Photo Shoot #67",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -596,7 +596,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599462/PAU_7643_p9smhp.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599957/PAU_7656_hatdst.jpg",
     "title": "Photo Shoot #68",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -604,7 +604,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599957/PAU_7664_dhctkw.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599958/PAU_7673_kxjrbc.jpg",
     "title": "Photo Shoot #69",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -612,7 +612,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599957/PAU_7676_xx8ikq.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599958/PAU_7681_pjhogi.jpg",
     "title": "Photo Shoot #70",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -620,7 +620,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599958/PAU_7686_lfzwl4.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599958/PAU_7694_viorpt.jpg",
     "title": "Photo Shoot #71",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -628,7 +628,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599963/PAU_8995_miacaf.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599959/PAU_8997_oobgbl.jpg",
     "title": "Photo Shoot #72",
-    "category": "studio",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -652,7 +652,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599960/PAU_9029_zrcuid.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599960/PAU_9041_mmflmf.jpg",
     "title": "Photo Shoot #75",
-    "category": "monochrome",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -668,7 +668,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599962/PAU_9197_qqoaaw.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599962/PAU_9366_uoxozr.jpg",
     "title": "Photo Shoot #77",
-    "category": "studio",
+    "category": "events",
     "isFeatured": false
   },
   {
@@ -676,7 +676,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749036318/IMG_4663_rr3zdi.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599975/OBI_8713_bdkh5n.jpg",
     "title": "Photo Shoot #78",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -692,7 +692,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_PIT9552_zdb4rf.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599974/IMG_0980_j2u03q.jpg",
     "title": "Photo Shoot #80",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -708,7 +708,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/OBI_8725_arcf8s.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_MG_2308_ecpaj0.jpg",
     "title": "Photo Shoot #82",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -716,7 +716,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748621156/IMG_2772_afw2ed.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748621156/IMG_5444.jpg_2_yuenvr.jpg",
     "title": "Photo Shoot #83",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -732,7 +732,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740535/IMG_3829_2_jza5kx.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740534/IMG_0017_olby7a.jpg",
     "title": "Photo Shoot #85",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -744,26 +744,10 @@
     "isFeatured": false
   },
   {
-    "id": 87,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740538/IMG_7946_o3vycn.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740537/IMG_7938_axxste.jpg",
-    "title": "Photo Shoot #87",
-    "category": "studio",
-    "isFeatured": false
-  },
-  {
     "id": 88,
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740537/IMG_7940_ofch7g.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740537/IMG_7925_ytikvz.jpg",
     "title": "Photo Shoot #88",
-    "category": "events",
-    "isFeatured": false
-  },
-  {
-    "id": 89,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740535/IMG_7921_gthgpl.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740536/IMG_7796_lxwk95.jpg",
-    "title": "Photo Shoot #89",
     "category": "portrait",
     "isFeatured": false
   },
@@ -772,7 +756,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740535/IMG_7804_yacx3n.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740536/IMG_7922_ggaspv.jpg",
     "title": "Photo Shoot #90",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -784,19 +768,11 @@
     "isFeatured": false
   },
   {
-    "id": 92,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740535/IMG_7872_wmtrqe.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1749740536/credit_signatureeditsco_MAJ08378_b6zvml.jpg",
-    "title": "Photo Shoot #92",
-    "category": "studio",
-    "isFeatured": false
-  },
-  {
     "id": 93,
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502983/WhatsApp_Image_2025-07-03_at_17.07.19_urz1ja.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502982/WhatsApp_Image_2025-07-03_at_18.03.03_jgitvk.jpg",
     "title": "Photo Shoot #93",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -812,7 +788,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502984/WhatsApp_Image_2025-07-12_at_13.21.58_bzufoc.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502982/WhatsApp_Image_2025-07-11_at_15.30.35_1_nxnd8l.jpg",
     "title": "Photo Shoot #95",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -828,7 +804,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502981/WhatsApp_Image_2025-07-03_at_17.07.18_eyaekc.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502981/WhatsApp_Image_2025-07-01_at_19.40.30_lbsju5.jpg",
     "title": "Photo Shoot #97",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -836,7 +812,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502980/WhatsApp_Image_2025-06-28_at_14.15.55_gjyxzk.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502980/WhatsApp_Image_2025-06-28_at_14.18.26_cbjiqx.jpg",
     "title": "Photo Shoot #98",
-    "category": "events",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -844,7 +820,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502980/WhatsApp_Image_2025-06-28_at_14.14.26_uggzig.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502979/WhatsApp_Image_2025-06-28_at_14.13.06_belsam.jpg",
     "title": "Photo Shoot #99",
-    "category": "portrait",
+    "category": "studio",
     "isFeatured": false
   },
   {
@@ -852,7 +828,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502979/WhatsApp_Image_2025-06-17_at_19.56.58_ulc1se.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1752502979/WhatsApp_Image_2025-06-16_at_14.43.48_vzga20.jpg",
     "title": "Photo Shoot #100",
-    "category": "monochrome",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -868,7 +844,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490808/IMG_7917_zbxwj5.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490776/IMG_7893_dm4ysp.jpg",
     "title": "Photo Shoot #102",
-    "category": "studio",
+    "category": "portrait",
     "isFeatured": false
   },
   {
@@ -876,7 +852,7 @@
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490770/IMG_7911_ov9dje.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490765/IMG_7887_d3qefw.jpg",
     "title": "Photo Shoot #103",
-    "category": "events",
+    "category": "portrait",
     "isFeatured": false
   }
 ]
