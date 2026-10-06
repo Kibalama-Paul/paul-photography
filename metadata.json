@@ -1,0 +1,8 @@
+{
+  "name": "Paul Photography",
+  "description": "Premium photography portfolio, flip card gallery, and shoot booking experience for Paul Photography.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
