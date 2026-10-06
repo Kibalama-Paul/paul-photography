@@ -168,3 +168,16 @@ export const resetGallery = (): void => {
     console.error('Error resetting gallery:', e);
   }
 };
+
+export const importGalleryItems = (items: GalleryItem[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.removeItem(DELETED_KEY);
+    localStorage.removeItem(EDITED_KEY);
+    localStorage.removeItem(FEATURED_KEY);
+    window.dispatchEvent(new Event('paul_gallery_updated'));
+  } catch (e) {
+    console.error('Error importing gallery items:', e);
+  }
+};
+

@@ -49,8 +49,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [backPreview, setBackPreview] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
+  // Vercel & GitHub sync UI states
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [showVercelGuide, setShowVercelGuide] = useState(true);
+
   // Bookings state
   const [bookings, setBookings] = useState<BookingSubmission[]>([]);
+
 
   // Load Bookings & Gallery sync
   useEffect(() => {
@@ -198,16 +203,39 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Export JSON Backup
+  // Export JSON Backup for Vercel & GitHub deployment
   const handleExportJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(galleryItems, null, 2));
+    const cleanItems = galleryItems.map((item) => ({
+      id: item.id,
+      frontImg: item.frontImg,
+      backImg: item.backImg || item.frontImg,
+      title: item.title,
+      category: item.category,
+      isFeatured: !!item.isFeatured
+    }));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanItems, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `galleryData_backup_${new Date().toISOString().slice(0, 10)}.json`);
+    downloadAnchor.setAttribute("download", "galleryData.json");
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
   };
+
+  const handleCopyJSON = () => {
+    const cleanItems = galleryItems.map((item) => ({
+      id: item.id,
+      frontImg: item.frontImg,
+      backImg: item.backImg || item.frontImg,
+      title: item.title,
+      category: item.category,
+      isFeatured: !!item.isFeatured
+    }));
+    navigator.clipboard.writeText(JSON.stringify(cleanItems, null, 2));
+    setCopiedJson(true);
+    setTimeout(() => setCopiedJson(false), 3000);
+  };
+
 
   // ----------------------------------------------------
   // LOGIN SCREEN
@@ -529,32 +557,70 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ---------------------------------------------------- */}
       {activeTab === 'gallery' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-white">Website Photo Gallery ({galleryItems.length} Total)</h2>
-              <p className="text-xs text-gray-400">
-                Edit titles, swap photos, delete, or toggle ⭐ Featured status to pick which cards display on the homepage.
+          {/* Vercel & GitHub Live Sync Card */}
+          <div className="mb-6 p-6 rounded-3xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-cyan-900/40 border border-cyan-500/30 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 uppercase tracking-widest">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Vercel Live Sync</span>
+                </div>
+                <h3 className="text-lg font-extrabold text-white">Publish Gallery Updates to Live Vercel Website</h3>
+                <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                  Edits made here are saved locally in your browser. To make your new photos visible live on Vercel to <strong>everyone on the internet</strong>, export the updated dataset to <code className="text-cyan-300 bg-black/40 px-1.5 py-0.5 rounded">src/data/galleryData.json</code> and push to GitHub.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  onClick={handleExportJSON}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download galleryData.json</span>
+                </button>
+
+                <button
+                  onClick={handleCopyJSON}
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 flex items-center gap-2 cursor-pointer transition-all"
+                >
+                  <FileJson className="w-4 h-4 text-cyan-400" />
+                  <span>{copiedJson ? 'Copied JSON Code! ✓' : 'Copy JSON Code'}</span>
+                </button>
+
+                <button
+                  onClick={handleResetGallery}
+                  className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold border border-white/10 flex items-center gap-1.5 cursor-pointer transition-all"
+                  title="Reset to factory dataset"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-white/10 text-xs text-gray-300 space-y-2">
+              <h4 className="font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Quick 3-Step Vercel Deployment Guide:</span>
+              </h4>
+              <ol className="list-decimal list-inside space-y-1.5 text-gray-300 pl-1 text-[11px]">
+                <li>Click <strong>Download galleryData.json</strong> above.</li>
+                <li>Replace the file at <code className="text-cyan-300">src/data/galleryData.json</code> in your project repository with the downloaded file.</li>
+                <li>In VS Code terminal / command prompt, run:
+                  <div className="bg-black/70 font-mono text-[11px] text-cyan-300 p-2.5 rounded-xl border border-white/10 mt-1 space-y-0.5">
+                    <p>git add src/data/galleryData.json</p>
+                    <p>git commit -m "Update gallery images for Vercel deployment"</p>
+                    <p>git push origin main</p>
+                  </div>
+                </li>
+              </ol>
+              <p className="text-[11px] text-emerald-400 font-medium pt-1">
+                ✓ Once pushed to GitHub, Vercel will automatically deploy your new gallery images within 30 seconds!
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportJSON}
-                className="px-4 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 text-xs font-semibold border border-purple-500/30 flex items-center gap-2 cursor-pointer transition-all"
-              >
-                <FileJson className="w-4 h-4" />
-                <span>Export JSON Backup</span>
-              </button>
-
-              <button
-                onClick={handleResetGallery}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-semibold border border-white/10 flex items-center gap-2 cursor-pointer transition-all"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Reset to Factory</span>
-              </button>
-            </div>
           </div>
+
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {galleryItems.map((item) => (
