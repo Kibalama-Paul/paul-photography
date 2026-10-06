@@ -1,5 +1,13 @@
 [
   {
+    "id": 104,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299935/BSP_9466_xm6mbc.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299936/BSP_9453_zbk4ug.jpg",
+    "title": "Studio Portrait",
+    "category": "studio",
+    "isFeatured": true
+  },
+  {
     "id": 1,
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599944/IMG_6569.jpg_b_w_kckmu6.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599957/Kolapostudios_gkfcrd.jpg",
