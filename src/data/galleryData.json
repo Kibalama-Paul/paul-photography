@@ -24,6 +24,30 @@
     "isFeatured": true
   },
   {
+    "id": 107,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299916/BSP_9811_wwuovo.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299915/BSP_9839_eqsxwu.jpg",
+    "title": "Studio Portrait",
+    "category": "studio",
+    "isFeatured": true
+  },
+  {
+    "id": 106,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299915/BSP_9734_ncs0tx.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299916/BSP_9730_t5mmo2.jpg",
+    "title": "Studio Portrait",
+    "category": "studio",
+    "isFeatured": true
+  },
+  {
+    "id": 105,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299934/BSP_9529_niitrz.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299932/BSP_9537_lrtsc2.jpg",
+    "title": "Studio Portait",
+    "category": "studio",
+    "isFeatured": true
+  },
+  {
     "id": 104,
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299935/BSP_9466_xm6mbc.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299936/BSP_9453_zbk4ug.jpg",
