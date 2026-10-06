@@ -6,19 +6,32 @@ export const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     message: ''
   });
 
   const [submitted, setSubmitted] = useState(false);
 
+  const handleSendWhatsApp = () => {
+    const lines = [
+      `NEW WEBSITE INQUIRY`,
+      `----------------------------------------`,
+      `Name: ${formData.name}`,
+      `Email: ${formData.email}`,
+      `Phone: ${formData.phone || 'N/A'}`,
+      `Message: ${formData.message}`,
+      `----------------------------------------`,
+      `Sent via Paul Photography Contact Form`
+    ];
+
+    const messageText = lines.join('\n');
+    window.open(`https://wa.me/256757460297?text=${encodeURIComponent(messageText)}`, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-  };
-
-  const handleSendWhatsApp = () => {
-    const text = `Hello Paul Photography,%0A%0AContact Inquiry:%0AName: ${encodeURIComponent(formData.name)}%0AEmail: ${encodeURIComponent(formData.email)}%0AMessage: ${encodeURIComponent(formData.message)}%0A%0AThank you!`;
-    window.open(`https://wa.me/256757460297?text=${text}`, '_blank', 'noopener,noreferrer');
+    handleSendWhatsApp();
   };
 
   return (
@@ -109,7 +122,7 @@ export const ContactPage: React.FC = () => {
           {/* Form */}
           {!submitted ? (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-1.5">
                     Your Name *
@@ -134,6 +147,19 @@ export const ContactPage: React.FC = () => {
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 neu-inset"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-1.5">
+                    Phone / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="+256 700 000 000"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 neu-inset"
                   />
                 </div>
@@ -191,7 +217,7 @@ export const ContactPage: React.FC = () => {
                 <button
                   onClick={() => {
                     setSubmitted(false);
-                    setFormData({ name: '', email: '', message: '' });
+                    setFormData({ name: '', email: '', phone: '', message: '' });
                   }}
                   className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs cursor-pointer transition-all"
                 >

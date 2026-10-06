@@ -8,6 +8,7 @@ import { GalleryPage } from './pages/GalleryPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { BookingPage } from './pages/BookingPage';
 import { ContactPage } from './pages/ContactPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp, Camera } from 'lucide-react';
 
@@ -19,7 +20,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['home', 'gallery', 'portfolio', 'booking', 'contact'].includes(hash)) {
+      if (['home', 'gallery', 'portfolio', 'booking', 'contact', 'admin'].includes(hash)) {
         setCurrentPage(hash as PageRoute);
       }
     };
@@ -54,7 +55,7 @@ export const App: React.FC = () => {
       <IntroOverlay />
 
       {/* Navigation */}
-      <Navbar currentPage={currentPage} onNavigate={handleNavigate} />
+      {currentPage !== 'admin' && <Navbar currentPage={currentPage} onNavigate={handleNavigate} />}
 
       {/* Main Page Area with AnimatePresence Page Transition */}
       <main className="flex-1">
@@ -71,6 +72,7 @@ export const App: React.FC = () => {
             {currentPage === 'portfolio' && <PortfolioPage onNavigate={handleNavigate} />}
             {currentPage === 'booking' && <BookingPage />}
             {currentPage === 'contact' && <ContactPage />}
+            {currentPage === 'admin' && <AdminDashboardPage onNavigate={handleNavigate} />}
           </motion.div>
         </AnimatePresence>
       </main>

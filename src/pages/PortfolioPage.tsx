@@ -221,25 +221,25 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* THE CEO REEL Video Section */}
-        <div className="pt-4 border-t border-white/10">
+        {/* THE CEO REEL Video Section - Portrait Reel Format */}
+        <div className="pt-8 border-t border-white/10">
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-xs font-semibold text-red-300 uppercase tracking-widest mb-2">
               <Film className="w-3.5 h-3.5 text-red-400" />
-              <span>Cinematography Reel</span>
+              <span>Portrait Reel Format</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">THE CEO REEL</h2>
-            <p className="text-xs text-gray-400 mt-1">Official video showreel showcasing camera movement and color grading</p>
+            <p className="text-xs text-gray-400 mt-1">Official portrait video showreel featuring Kibalama Paul</p>
           </div>
 
-          <div className="max-w-4xl mx-auto rounded-3xl overflow-hidden border border-white/20 shadow-2xl bg-black relative">
+          <div className="max-w-xs sm:max-w-sm mx-auto rounded-3xl overflow-hidden border-2 border-purple-500/40 shadow-2xl bg-black relative aspect-[9/16] group">
             <video
               controls
               autoPlay
               muted
               loop
               playsInline
-              className="w-full h-auto aspect-video object-cover"
+              className="w-full h-full object-cover"
             >
               <source
                 src="https://res.cloudinary.com/dirfcqs1f/video/upload/v1762193474/paulo_fdm1ai.mp4"
@@ -247,6 +247,13 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
               />
               Your browser does not support HTML5 video.
             </video>
+            {/* Reel Badge Header */}
+            <div className="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
+              <span className="text-[10px] font-bold text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                REEL • 9:16 PORTRAIT
+              </span>
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+            </div>
           </div>
         </div>
       </motion.div>

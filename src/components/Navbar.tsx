@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
-import { Camera, Calendar, Phone, Image, User, Menu, X, MessageSquare } from 'lucide-react';
+import { Camera, Calendar, Phone, Image, User, Menu, X, MessageSquare, Lock } from 'lucide-react';
 
 interface NavbarProps {
   currentPage: PageRoute;

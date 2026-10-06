@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, MessageCircle, ExternalLink, RefreshCw } from 'lucide-react';
-import { GALLERY_ITEMS } from '../data/galleryData';
+import { getFeaturedGalleryItems } from '../utils/galleryStore';
 
 interface HomePageProps {
   onNavigate: (page: PageRoute) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  // Sampler cards for interactive home preview
-  const sampleCards = GALLERY_ITEMS.slice(0, 4);
+  const [sampleCards, setSampleCards] = useState(() => getFeaturedGalleryItems());
   const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const handleUpdate = () => setSampleCards(getFeaturedGalleryItems());
+    window.addEventListener('paul_gallery_updated', handleUpdate);
+    return () => window.removeEventListener('paul_gallery_updated', handleUpdate);
+  }, []);
 
   const toggleFlip = (id: number) => {
     setFlippedCards((prev) => ({ ...prev, [id]: !prev[id] }));

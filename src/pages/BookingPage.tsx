@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { BookingSubmission } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, User, Mail, Sparkles, CheckCircle2, MessageCircle, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Calendar, Clock, User, Mail, Phone, Sparkles, CheckCircle2, MessageCircle, ExternalLink, ShieldCheck, MapPin, Wallet } from 'lucide-react';
 
 export const BookingPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     datetime: '',
     shootType: '',
+    location: '',
+    budget: '',
     notes: ''
   });
 
@@ -31,6 +34,30 @@ export const BookingPage: React.FC = () => {
     "Graduation shoot"
   ];
 
+  const openWhatsAppBooking = (booking: BookingSubmission) => {
+    const formattedDate = booking.datetime ? booking.datetime.replace('T', ' at ') : 'N/A';
+    
+    const lines = [
+      `NEW BOOKING REQUEST - PAUL PHOTOGRAPHY`,
+      `----------------------------------------`,
+      `Booking Ref: ${booking.id}`,
+      `Client Name: ${booking.name}`,
+      `Phone / WhatsApp: ${booking.phone || 'N/A'}`,
+      `Email Address: ${booking.email || 'N/A'}`,
+      `Shoot / Service Category: ${booking.shootType}`,
+      `Preferred Date & Time: ${formattedDate}`,
+      `Location / Venue: ${booking.location || 'Not specified'}`,
+      `Estimated Budget / Package: ${booking.budget || 'Not specified'}`,
+      `Special Notes / Details: ${booking.notes || 'None provided'}`,
+      `----------------------------------------`,
+      `Sent directly via Paul Photography Booking Hub`
+    ];
+
+    const messageText = lines.join('\n');
+    const url = `https://wa.me/256757460297?text=${encodeURIComponent(messageText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -39,8 +66,11 @@ export const BookingPage: React.FC = () => {
       id: `BK-${Math.floor(1000 + Math.random() * 9000)}`,
       name: formData.name,
       email: formData.email,
+      phone: formData.phone,
       datetime: formData.datetime,
       shootType: formData.shootType,
+      location: formData.location,
+      budget: formData.budget,
       notes: formData.notes,
       status: 'confirmed',
       createdAt: new Date().toISOString()
@@ -57,14 +87,9 @@ export const BookingPage: React.FC = () => {
     setTimeout(() => {
       setIsSubmitting(false);
       setSubmittedBooking(newBooking);
-    }, 600);
-  };
-
-  const openWhatsAppBooking = (booking: BookingSubmission) => {
-    const formattedDate = booking.datetime.replace('T', ' at ');
-    const text = `Hello Paul Photography,%0A%0AI would like to book a photoshoot.%0A%0ABooking Ref: ${booking.id}%0AName: ${encodeURIComponent(booking.name)}%0AEmail: ${encodeURIComponent(booking.email)}%0ADate & Time: ${encodeURIComponent(formattedDate)}%0AShoot Type: ${encodeURIComponent(booking.shootType)}${booking.notes ? `%0ANotes: ${encodeURIComponent(booking.notes)}` : ''}%0A%0AThank you!`;
-    const url = `https://wa.me/256757460297?text=${text}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+      // Auto dispatch to CEO WhatsApp with all captured data
+      openWhatsAppBooking(newBooking);
+    }, 500);
   };
 
   return (
@@ -106,7 +131,7 @@ export const BookingPage: React.FC = () => {
               Book Your Photoshoot
             </h1>
             <p className="text-sm text-gray-300 mt-2">
-              Reserve your slot with Paul Photography. Confirmations are synced instantly via WhatsApp hotline.
+              Reserve your slot with Paul Photography. Every detail entered is captured and transmitted directly to CEO Kibalama Paul on WhatsApp (+256 757460297).
             </p>
           </div>
 
@@ -129,21 +154,42 @@ export const BookingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
-                Email Address *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  required
-                  placeholder="name@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
-                />
+            {/* Email & Phone grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
+                  Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
+                  Phone / WhatsApp *
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="tel"
+                    required
+                    placeholder="+256 700 000 000"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
+                  />
+                </div>
               </div>
             </div>
 
@@ -167,7 +213,7 @@ export const BookingPage: React.FC = () => {
             {/* Type of Shoot */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
-                Type of Shoot *
+                Type of Shoot / Service *
               </label>
               <select
                 required
@@ -186,14 +232,51 @@ export const BookingPage: React.FC = () => {
               </select>
             </div>
 
+            {/* Location & Budget grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Location / Venue */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
+                  Location / Venue
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Kampala / Speke Resort / Studio"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
+                  />
+                </div>
+              </div>
+
+              {/* Estimated Budget */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
+                  Estimated Budget / Package
+                </label>
+                <div className="relative">
+                  <Wallet className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. UGX 500,000 / Flexible"
+                    value={formData.budget}
+                    onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Additional details / notes */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-2">
-                Location & Details (Optional)
+                Special Requests / Additional Details
               </label>
               <textarea
                 rows={3}
-                placeholder="Preferred venue, outdoor location, or specific requirements..."
+                placeholder="Specific requirements, theme ideas, outfit changes, number of guests..."
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="w-full px-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 neu-inset"
@@ -204,14 +287,14 @@ export const BookingPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-base shadow-xl shadow-purple-900/40 neu-button flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] mt-4"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 text-white font-bold text-base shadow-xl shadow-emerald-900/40 neu-button flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] mt-4"
             >
               {isSubmitting ? (
-                <span>Generating Booking...</span>
+                <span>Transmitting Booking...</span>
               ) : (
                 <>
-                  <Calendar className="w-5 h-5" />
-                  <span>Confirm Photoshoot Request</span>
+                  <MessageCircle className="w-5 h-5 text-emerald-200" />
+                  <span>Send Booking to CEO WhatsApp (+256 757460297)</span>
                 </>
               )}
             </button>
@@ -220,7 +303,7 @@ export const BookingPage: React.FC = () => {
           {/* Guarantee info */}
           <div className="mt-6 pt-6 border-t border-white/10 flex items-center justify-center gap-2 text-xs text-gray-300">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Fast response guaranteed within 2 hours via WhatsApp or Phone</span>
+            <span>Fast response guaranteed within 2 hours by Kibalama Paul</span>
           </div>
         </motion.div>
       </div>
@@ -251,26 +334,52 @@ export const BookingPage: React.FC = () => {
               </span>
 
               <h2 className="text-2xl font-bold text-white mt-3 mb-2">
-                Booking Request Recorded!
+                Booking Recorded & Sent!
               </h2>
 
               <p className="text-xs text-gray-300 mb-6">
-                Thank you <strong className="text-white">{submittedBooking.name}</strong>. Your requested date for a <strong className="text-cyan-300">{submittedBooking.shootType}</strong> session has been prepared.
+                Thank you <strong className="text-white">{submittedBooking.name}</strong>. All your entered details have been compiled and transmitted to CEO Kibalama Paul on WhatsApp.
               </p>
 
               <div className="bg-white/5 rounded-2xl p-4 text-left text-xs text-gray-300 space-y-2 mb-6 border border-white/10">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Date & Time:</span>
-                  <span className="font-semibold text-white">{submittedBooking.datetime.replace('T', ' at ')}</span>
+                  <span className="text-gray-400">Name:</span>
+                  <span className="font-semibold text-white">{submittedBooking.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Phone:</span>
+                  <span className="font-semibold text-emerald-400">{submittedBooking.phone || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Email:</span>
                   <span className="font-semibold text-white">{submittedBooking.email}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-400">Date & Time:</span>
+                  <span className="font-semibold text-white">{submittedBooking.datetime.replace('T', ' at ')}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-400">Category:</span>
                   <span className="font-semibold text-cyan-300">{submittedBooking.shootType}</span>
                 </div>
+                {submittedBooking.location && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Location:</span>
+                    <span className="font-semibold text-gray-200 truncate max-w-[180px]">{submittedBooking.location}</span>
+                  </div>
+                )}
+                {submittedBooking.budget && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Budget:</span>
+                    <span className="font-semibold text-emerald-300 truncate max-w-[180px]">{submittedBooking.budget}</span>
+                  </div>
+                )}
+                {submittedBooking.notes && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Notes:</span>
+                    <span className="font-semibold text-gray-200 truncate max-w-[180px]">{submittedBooking.notes}</span>
+                  </div>
+                )}
               </div>
 
               {/* Direct WhatsApp dispatch button */}
@@ -279,7 +388,7 @@ export const BookingPage: React.FC = () => {
                 className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 mb-3"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Send to WhatsApp (+256 757460297)</span>
+                <span>Open WhatsApp to Resend Details (+256 757460297)</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </button>
 
@@ -296,3 +405,4 @@ export const BookingPage: React.FC = () => {
     </div>
   );
 };
+

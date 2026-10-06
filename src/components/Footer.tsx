@@ -1,6 +1,6 @@
 import React from 'react';
 import { PageRoute } from '../types';
-import { Mail, Phone, ExternalLink } from 'lucide-react';
+import { Mail, Phone, ExternalLink, Lock } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (page: PageRoute) => void;
@@ -43,21 +43,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
     <footer className="relative z-20 border-t border-white/10 bg-black/80 backdrop-blur-md text-gray-300 pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-10 border-b border-white/10">
-          {/* Brand info */}
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <img
-                src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png"
-                alt="Paul Photography"
-                className="w-10 h-10 object-contain rounded-full bg-white/10 p-1"
-              />
-              <span className="text-lg font-bold tracking-wider text-white">PAUL PHOTOGRAPHY</span>
-            </div>
-            <p className="text-sm text-gray-400 leading-relaxed max-w-sm">
-              Capturing moments, preserving memories. High-end portraiture, cinematography, weddings, and commercial photography by Kibalama Paul.
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10 border-b border-white/10">
 
           {/* Quick Links */}
           <div className="flex flex-col space-y-2">
@@ -141,9 +127,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             ))}
           </div>
 
-          <p className="text-xs text-gray-500">
-            © {new Date().getFullYear()} Paul Photography. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span>© {new Date().getFullYear()} Paul Photography. All rights reserved.</span>
+            <button
+              onClick={() => onNavigate('admin')}
+              className="text-gray-500 hover:text-purple-400 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Developer Admin Portal"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </button>
+          </div>
         </div>
       </div>
     </footer>

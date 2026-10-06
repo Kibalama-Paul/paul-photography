@@ -1,15 +1,22 @@
-import React, { useState, useMemo } from 'react';
-import { GALLERY_ITEMS } from '../data/galleryData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { getGalleryItems } from '../utils/galleryStore';
 import { GalleryItem } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ZoomIn, RefreshCw, ChevronLeft, ChevronRight, Filter, Sparkles } from 'lucide-react';
 
 export const GalleryPage: React.FC = () => {
+  const [items, setItems] = useState<GalleryItem[]>(() => getGalleryItems());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeLightboxItem, setActiveLightboxItem] = useState<GalleryItem | null>(null);
   const [lightboxSide, setLightboxSide] = useState<'front' | 'back'>('front');
   const [mobileFlipped, setMobileFlipped] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const handleUpdate = () => setItems(getGalleryItems());
+    window.addEventListener('paul_gallery_updated', handleUpdate);
+    return () => window.removeEventListener('paul_gallery_updated', handleUpdate);
+  }, []);
 
   const categories = [
     { id: 'all', label: 'All Shoots' },
@@ -20,7 +27,7 @@ export const GalleryPage: React.FC = () => {
   ];
 
   const filteredItems = useMemo(() => {
-    return GALLERY_ITEMS.filter((item) => {
+    return items.filter((item) => {
       const matchesCategory =
         selectedCategory === 'all' || item.category === selectedCategory;
       const matchesSearch =
@@ -28,7 +35,7 @@ export const GalleryPage: React.FC = () => {
         item.id.toString().includes(searchQuery);
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [items, selectedCategory, searchQuery]);
 
   const toggleMobileFlip = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
