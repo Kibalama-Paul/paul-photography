@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, KeyRound, Upload, Image as ImageIcon, Trash2, CheckCircle2,
-  RefreshCw, LogOut, ShieldAlert, Sparkles, Plus, Eye, Download,
+  RefreshCw, LogOut, ShieldAlert, Plus, Eye, Download,
   Phone, Mail, Calendar, MapPin, Tag, Clock, MessageSquare, ExternalLink,
   Settings, FileJson, Pencil, Star, X, Check
 } from 'lucide-react';
@@ -308,7 +308,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 glass-panel-light p-6 rounded-3xl border border-white/20">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-xs font-semibold text-emerald-300 uppercase tracking-widest mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             <span>Developer Mode Active</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Paul Photography Dashboard</h1>
@@ -524,7 +523,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           <div className="lg:col-span-5 flex flex-col items-center">
             <div className="glass-panel-light w-full rounded-3xl p-6 border border-white/20 text-center">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
                 <span>Interactive 3D Card Preview</span>
               </h3>
 
@@ -882,7 +880,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950 text-cyan-300 border border-cyan-500/30 uppercase">
                         {b.shootType}
                       </span>
+                      {b.paymentStatus === 'confirmed' ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/80 text-red-300 border border-red-500/40 uppercase">
+                          Airtel Paid {b.amountPaid ? `• UGX ${b.amountPaid}` : ''}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-gray-400 border border-white/10 uppercase">
+                          Payment Pending
+                        </span>
+                      )}
                     </div>
+
+                    {b.transactionId && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                        <span className="font-semibold text-red-400">Airtel Txn Ref:</span>
+                        <span className="font-mono bg-black/60 px-2 py-0.5 rounded border border-white/15 text-white">
+                          {b.transactionId}
+                        </span>
+                        {b.senderPhone && (
+                          <span className="text-gray-400">
+                            (Sender: <strong className="text-gray-200">{b.senderPhone}</strong>)
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-4 pt-1 text-gray-300">
                       <span className="flex items-center gap-1">

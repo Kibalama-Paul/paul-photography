@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Briefcase, Film, Calendar, CheckCircle, Sparkles, Play, Pause } from 'lucide-react';
+import { Award, Briefcase, Film, Calendar, CheckCircle, Play, Pause } from 'lucide-react';
 
 interface PortfolioPageProps {
   onNavigate: (page: PageRoute) => void;

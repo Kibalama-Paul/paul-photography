@@ -20,6 +20,11 @@ export interface BookingSubmission {
   budget?: string;
   notes?: string;
   status: 'pending' | 'confirmed';
+  paymentMethod?: string;
+  paymentStatus?: 'confirmed' | 'pending' | 'unpaid';
+  transactionId?: string;
+  amountPaid?: string;
+  senderPhone?: string;
   createdAt: string;
 }
 

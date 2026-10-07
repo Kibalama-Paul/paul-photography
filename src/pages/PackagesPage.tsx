@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute } from '../types';
 import { motion } from 'framer-motion';
-import { Camera, Image, Film, CheckCircle2, MessageSquare, ArrowRight, Heart, Monitor, Video, Gift, Sparkles, Star, Users } from 'lucide-react';
+import { CheckCircle2, MessageSquare, ArrowRight, Monitor, Video, Gift, Info, Car } from 'lucide-react';
 
 interface PackagesPageProps {
   onNavigate: (page: PageRoute) => void;
@@ -12,7 +12,7 @@ export interface PackageItem {
   category: 'studio' | 'outdoor' | 'wedding' | 'kwanjula' | 'nikkah-kukyala';
   title: string;
   price: string;
-  description: string;
+  description?: string;
   badge?: string;
   isPopular?: boolean;
   isEditableSample?: boolean;
@@ -431,6 +431,30 @@ export const PackagesPage: React.FC<PackagesPageProps> = ({ onNavigate }) => {
         </div>
       </motion.div>
 
+      {/* Prominent Travel & Transportation Note */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-10 max-w-4xl mx-auto rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 p-4 sm:p-5 backdrop-blur-md shadow-lg shadow-amber-950/20"
+      >
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 shrink-0 mt-0.5 sm:mt-0">
+            <Car className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-md border border-amber-400/30">
+                Important Travel Policy
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-gray-200 leading-relaxed font-normal">
+              <strong className="text-white font-bold">NOTE:</strong> Transportation fee of the team that's to shoot for the event (fuel charges are separate from the rate cards..) it's to be catered for by the client since the event is outside Kampala...and the team travels in a rental.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Packages Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
         {filteredPackages.map((pkg, idx) => (
@@ -445,36 +469,26 @@ export const PackagesPage: React.FC<PackagesPageProps> = ({ onNavigate }) => {
                 : 'glass-panel-light border border-white/15 hover:border-white/30 shadow-xl'
             }`}
           >
-            {/* Ribbon Badge */}
-            {pkg.badge && (
-              <div className="absolute top-4 right-4">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                  pkg.category === 'nikkah-kukyala'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                    : pkg.category === 'kwanjula'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                    : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md'
-                }`}>
-                  {pkg.badge}
-                </span>
-              </div>
-            )}
-
             <div>
-              {/* Category Icon */}
-              <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-cyan-300 mb-5">
-                {pkg.category === 'studio' && <Camera className="w-6 h-6" />}
-                {pkg.category === 'outdoor' && <Image className="w-6 h-6" />}
-                {pkg.category === 'nikkah-kukyala' && <Star className="w-6 h-6 text-emerald-400" />}
-                {pkg.category === 'kwanjula' && <Users className="w-6 h-6 text-amber-400" />}
-                {pkg.category === 'wedding' && <Heart className="w-6 h-6 text-pink-400" />}
+              {/* Top Badge Row */}
+              <div className="flex items-center justify-between min-h-[28px] mb-3">
+                {pkg.badge ? (
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                    pkg.category === 'nikkah-kukyala'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                      : pkg.category === 'kwanjula'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                      : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md'
+                  }`}>
+                    {pkg.badge}
+                  </span>
+                ) : (
+                  <span className="block h-5" />
+                )}
               </div>
 
               {/* Title & Price */}
-              <h3 className="text-xl font-extrabold text-white mb-2">{pkg.title}</h3>
-              <p className="text-xs text-gray-300 mb-4 font-light leading-relaxed">
-                {pkg.description}
-              </p>
+              <h3 className="text-xl font-extrabold text-white mb-4 leading-snug">{pkg.title}</h3>
 
               <div className="mb-6 pt-2 border-t border-white/10">
                 <span className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-purple-300">
@@ -523,9 +537,8 @@ export const PackagesPage: React.FC<PackagesPageProps> = ({ onNavigate }) => {
         className="mt-16 glass-panel rounded-3xl p-6 sm:p-10 border border-cyan-500/30 shadow-2xl relative overflow-hidden"
       >
         <div className="text-center mb-8">
-          <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Optional Enhancements & Referral Bonus</span>
+          <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-[10px] font-bold uppercase tracking-widest inline-block mb-3">
+            Optional Enhancements & Referral Bonus
           </span>
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white">Add-On Services & Special Offers</h2>
           <p className="text-xs sm:text-sm text-gray-300 mt-2 font-light">
@@ -568,13 +581,22 @@ export const PackagesPage: React.FC<PackagesPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-          <span className="text-xs text-gray-400 font-medium uppercase tracking-wider block mb-1">
-            Other Events We Cover
-          </span>
-          <p className="text-xs text-gray-300">
-            Graduations • Birthdays • Bachelor Parties • Engagements • Baby Showers • Corporate Events & Music Reels
-          </p>
+        <div className="mt-8 pt-6 border-t border-white/10 space-y-4 text-center">
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left flex items-start gap-3">
+            <Info className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm text-gray-200 leading-relaxed">
+              <strong className="text-amber-300 font-bold uppercase tracking-wider">NOTE:</strong> Transportation fee of the team that's to shoot for the event (fuel charges are separate from the rate cards..) it's to be catered for by the client since the event is outside Kampala...and the team travels in a rental.
+            </p>
+          </div>
+
+          <div>
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider block mb-1">
+              Other Events We Cover
+            </span>
+            <p className="text-xs text-gray-300">
+              Graduations • Birthdays • Bachelor Parties • Engagements • Baby Showers • Corporate Events & Music Reels
+            </p>
+          </div>
         </div>
       </motion.div>
 

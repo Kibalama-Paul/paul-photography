@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, MessageCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowRight, MessageCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { getFeaturedGalleryItems } from '../utils/galleryStore';
 
 interface HomePageProps {
@@ -106,7 +106,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl font-semibold text-slate-900 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 neu-button flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105"
             >
               <span>Book for a Shoot</span>
-              <Sparkles className="w-4 h-4 text-slate-900" />
             </button>
           </motion.div>
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getGalleryItems } from '../utils/galleryStore';
 import { GalleryItem } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, RefreshCw, ChevronLeft, ChevronRight, Filter, Sparkles } from 'lucide-react';
+import { X, ZoomIn, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 
 export const GalleryPage: React.FC = () => {
   const [items, setItems] = useState<GalleryItem[]>(() => getGalleryItems());
