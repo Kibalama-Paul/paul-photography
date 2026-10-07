@@ -1,6 +1,6 @@
 import React from 'react';
 import { PageRoute } from '../types';
-import { Mail, Phone, ExternalLink, Lock } from 'lucide-react';
+import { Mail, Phone, ExternalLink } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (page: PageRoute) => void;
@@ -135,14 +135,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span>© {new Date().getFullYear()} Paul Photography. All rights reserved.</span>
-            <button
-              onClick={() => onNavigate('admin')}
-              className="text-gray-500 hover:text-purple-400 flex items-center gap-1 transition-colors cursor-pointer"
-              title="Developer Admin Portal"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
           </div>
         </div>
       </div>
