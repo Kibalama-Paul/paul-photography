@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute } from '../types';
-import { Camera, Calendar, Phone, Image, User, Menu, X, MessageSquare, Lock } from 'lucide-react';
+import { Camera, Calendar, Phone, Image, User, Menu, X, MessageSquare, Tag } from 'lucide-react';
 
 interface NavbarProps {
   currentPage: PageRoute;
@@ -23,6 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
     { page: 'home', label: 'Home', icon: <Camera className="w-4 h-4" /> },
     { page: 'gallery', label: 'Photos by Paul', icon: <Image className="w-4 h-4" /> },
     { page: 'portfolio', label: 'Portfolio (CEO)', icon: <User className="w-4 h-4" /> },
+    { page: 'packages', label: 'Packages & Pricing', icon: <Tag className="w-4 h-4" /> },
     { page: 'booking', label: 'Book Shoot', icon: <Calendar className="w-4 h-4" /> },
     { page: 'contact', label: 'Contact', icon: <Phone className="w-4 h-4" /> },
   ];

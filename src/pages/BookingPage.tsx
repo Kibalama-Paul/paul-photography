@@ -24,7 +24,7 @@ export const BookingPage: React.FC = () => {
     "Graphics Design",
     "Web and APP development",
     "Kwanjula",
-    "Niha",
+    "Nikkah",
     "Kuhingira",
     "Birthday party",
     "Indoor Photoshoot",

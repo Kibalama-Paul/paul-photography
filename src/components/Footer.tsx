@@ -67,6 +67,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               The CEO Portfolio & Reels
             </button>
             <button
+              onClick={() => onNavigate('packages')}
+              className="text-left text-sm text-gray-400 hover:text-cyan-400 transition-colors cursor-pointer"
+            >
+              Packages & Pricing
+            </button>
+            <button
               onClick={() => onNavigate('booking')}
               className="text-left text-sm text-gray-400 hover:text-cyan-400 transition-colors cursor-pointer"
             >

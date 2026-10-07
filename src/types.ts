@@ -7,7 +7,7 @@ export interface GalleryItem {
   isFeatured?: boolean;
 }
 
-export type PageRoute = 'home' | 'gallery' | 'portfolio' | 'booking' | 'contact' | 'admin';
+export type PageRoute = 'home' | 'gallery' | 'portfolio' | 'packages' | 'booking' | 'contact' | 'admin';
 
 export interface BookingSubmission {
   id: string;

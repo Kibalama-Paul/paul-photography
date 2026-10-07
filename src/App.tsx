@@ -8,6 +8,7 @@ import { GalleryPage } from './pages/GalleryPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { BookingPage } from './pages/BookingPage';
 import { ContactPage } from './pages/ContactPage';
+import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp, Camera } from 'lucide-react';
@@ -20,7 +21,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['home', 'gallery', 'portfolio', 'booking', 'contact', 'admin'].includes(hash)) {
+      if (['home', 'gallery', 'portfolio', 'packages', 'booking', 'contact', 'admin'].includes(hash)) {
         setCurrentPage(hash as PageRoute);
       }
     };
@@ -70,6 +71,7 @@ export const App: React.FC = () => {
             {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
             {currentPage === 'gallery' && <GalleryPage />}
             {currentPage === 'portfolio' && <PortfolioPage onNavigate={handleNavigate} />}
+            {currentPage === 'packages' && <PackagesPage onNavigate={handleNavigate} />}
             {currentPage === 'booking' && <BookingPage />}
             {currentPage === 'contact' && <ContactPage />}
             {currentPage === 'admin' && <AdminDashboardPage onNavigate={handleNavigate} />}
