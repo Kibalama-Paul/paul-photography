@@ -30,7 +30,7 @@ export const BookingPage: React.FC = () => {
 
   const AIRTEL_NUMBER = '0757460297';
   const AIRTEL_INTL = '+256 757460297';
-  const AIRTEL_NAME = 'Kibalama Paul';
+  const AIRTEL_NAME = 'Kawulukusi Godfrey';
 
   const handleCopyAirtel = () => {
     navigator.clipboard.writeText(AIRTEL_NUMBER);
@@ -77,7 +77,7 @@ export const BookingPage: React.FC = () => {
       `Recipient: ${AIRTEL_INTL} (${AIRTEL_NAME})`,
       booking.amountPaid ? `Amount Paid: UGX ${booking.amountPaid}` : `Amount Paid: N/A`,
       booking.transactionId ? `Airtel Transaction ID: ${booking.transactionId}` : `Transaction ID: None`,
-      booking.senderPhone ? `Sender Airtel Phone: ${booking.senderPhone}` : '',
+      booking.senderPhone ? `Sender Phone (MTN/Airtel/All Networks): ${booking.senderPhone}` : '',
       `----------------------------------------`,
       `Sent directly via Paul Photography Booking Hub`
     ].filter(Boolean);
@@ -387,7 +387,7 @@ export const BookingPage: React.FC = () => {
                 </div>
                 <div className="bg-white/5 p-2.5 rounded-lg border border-white/10">
                   <span className="font-bold text-red-400 block mb-0.5">2. Verify Name</span>
-                  <span>Confirm recipient displays <strong>Kibalama Paul</strong></span>
+                  <span>Confirm recipient displays <strong>Kawulukusi Godfrey</strong></span>
                 </div>
                 <div className="bg-white/5 p-2.5 rounded-lg border border-white/10">
                   <span className="font-bold text-red-400 block mb-0.5">3. Copy Txn ID</span>
@@ -462,18 +462,21 @@ export const BookingPage: React.FC = () => {
                       ))}
                     </div>
 
-                    {/* Sender's Airtel Phone Number */}
+                    {/* Sender's Phone Number (All Networks) */}
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-300 mb-1">
-                        Sender's Airtel Phone (if paid from different line)
+                        Sender's Phone Number (MTN, Airtel, or Any Network)
                       </label>
                       <input
                         type="tel"
-                        placeholder="e.g. 075... (leave blank if same as contact phone)"
+                        placeholder="e.g. 077... / 078... / 070... / 075... (All networks accepted)"
                         value={formData.senderPhone}
                         onChange={(e) => setFormData({ ...formData, senderPhone: e.target.value })}
-                        className="w-full px-3.5 py-2 bg-neutral-900 border border-white/15 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-400"
+                        className="w-full px-3.5 py-2.5 bg-neutral-900 border border-white/20 rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-400"
                       />
+                      <span className="text-[10px] text-gray-400 mt-1 block">
+                        If sending from an MTN, Airtel, or friend's line, enter that number here so we can confirm the sender.
+                      </span>
                     </div>
                   </motion.div>
                 )}
