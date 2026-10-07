@@ -76,10 +76,6 @@ export const GalleryPage: React.FC = () => {
         transition={{ duration: 0.6 }}
         className="text-center mb-10"
       >
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-xs font-semibold text-purple-300 uppercase tracking-widest mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-          <span>Interactive 3D Portfolio</span>
-        </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-3">
           PHOTOS BY PAUL
         </h1>

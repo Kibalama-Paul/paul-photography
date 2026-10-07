@@ -63,10 +63,6 @@ export const ContactPage: React.FC = () => {
           className="glass-panel-light rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden"
         >
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-xs font-semibold text-cyan-200 uppercase tracking-widest mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-              <span>24/7 Rapid Response</span>
-            </div>
             <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
               Get In Touch
             </h1>

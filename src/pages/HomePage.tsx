@@ -56,16 +56,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-medium text-cyan-200 mb-6 backdrop-blur-md"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Professional Visual Storytelling</span>
-          </motion.div>
+          {/* Heading */}
 
           {/* Heading */}
           <motion.h1

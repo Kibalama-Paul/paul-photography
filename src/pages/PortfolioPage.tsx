@@ -83,10 +83,6 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
       >
         {/* Header Title */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-xs font-semibold text-cyan-300 uppercase tracking-widest mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Creative Director & Lead Photographer</span>
-          </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
             KIBALAMA PAUL <span className="text-purple-400">(CEO)</span>
           </h1>
@@ -224,10 +220,6 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
         {/* THE CEO REEL Video Section - Portrait Reel Format */}
         <div className="pt-8 border-t border-white/10">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-xs font-semibold text-red-300 uppercase tracking-widest mb-2">
-              <Film className="w-3.5 h-3.5 text-red-400" />
-              <span>Portrait Reel Format</span>
-            </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">THE CEO REEL</h2>
             <p className="text-xs text-gray-400 mt-1">Official portrait video showreel featuring Kibalama Paul</p>
           </div>

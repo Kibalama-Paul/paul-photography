@@ -121,12 +121,7 @@ export const BookingPage: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="glass-panel-light rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden"
         >
-          {/* Top header badge */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-xs font-semibold text-cyan-200 uppercase tracking-widest mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-              <span>Direct Reservation</span>
-            </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
               Book Your Photoshoot
             </h1>
