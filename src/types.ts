@@ -12,7 +12,7 @@ export type PageRoute = 'home' | 'gallery' | 'portfolio' | 'packages' | 'booking
 export interface BookingSubmission {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   datetime: string;
   shootType: string;
@@ -26,6 +26,8 @@ export interface BookingSubmission {
   amountPaid?: string;
   senderPhone?: string;
   createdAt: string;
+  adminApproved?: boolean;
+  adminApprovedAt?: string;
 }
 
 export interface ContactMessage {

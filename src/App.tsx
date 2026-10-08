@@ -11,11 +11,29 @@ import { ContactPage } from './pages/ContactPage';
 import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUp, Camera } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<PageRoute>('home');
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // ── Theme: dark (default) | light ──────────────────────────────
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('paul_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  // Apply theme class to <html> whenever it changes
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+    }
+    localStorage.setItem('paul_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   // Sync with URL hash if provided
   useEffect(() => {
@@ -25,7 +43,6 @@ export const App: React.FC = () => {
         setCurrentPage(hash as PageRoute);
       }
     };
-
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -33,9 +50,7 @@ export const App: React.FC = () => {
 
   // Monitor scroll for back to top button
   useEffect(() => {
-    const checkScroll = () => {
-      setShowScrollTop(window.scrollY > 400);
-    };
+    const checkScroll = () => setShowScrollTop(window.scrollY > 400);
     window.addEventListener('scroll', checkScroll);
     return () => window.removeEventListener('scroll', checkScroll);
   }, []);
@@ -46,17 +61,23 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   return (
-    <div className="min-h-screen bg-[#0a0a0e] text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white relative">
+    <div
+      id="app-root"
+      className="min-h-screen bg-[#0a0a0e] text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white relative"
+    >
       {/* Opening Intro Animation */}
       <IntroOverlay />
 
       {/* Navigation */}
-      {currentPage !== 'admin' && <Navbar currentPage={currentPage} onNavigate={handleNavigate} />}
+      {currentPage !== 'admin' && (
+        <Navbar
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      )}
 
       {/* Main Page Area with AnimatePresence Page Transition */}
       <main className="flex-1">
@@ -68,13 +89,13 @@ export const App: React.FC = () => {
             exit={{ opacity: 0, y: -18 }}
             transition={{ duration: 0.35, ease: 'easeInOut' }}
           >
-            {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
-            {currentPage === 'gallery' && <GalleryPage />}
+            {currentPage === 'home'      && <HomePage onNavigate={handleNavigate} />}
+            {currentPage === 'gallery'   && <GalleryPage />}
             {currentPage === 'portfolio' && <PortfolioPage onNavigate={handleNavigate} />}
-            {currentPage === 'packages' && <PackagesPage onNavigate={handleNavigate} />}
-            {currentPage === 'booking' && <BookingPage />}
-            {currentPage === 'contact' && <ContactPage />}
-            {currentPage === 'admin' && <AdminDashboardPage onNavigate={handleNavigate} />}
+            {currentPage === 'packages'  && <PackagesPage onNavigate={handleNavigate} />}
+            {currentPage === 'booking'   && <BookingPage />}
+            {currentPage === 'contact'   && <ContactPage />}
+            {currentPage === 'admin'     && <AdminDashboardPage onNavigate={handleNavigate} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -82,14 +103,14 @@ export const App: React.FC = () => {
       {/* Footer */}
       <Footer onNavigate={handleNavigate} />
 
-      {/* Smooth Scroll to Top floating button */}
+      {/* Smooth Scroll to Top */}
       <AnimatePresence>
         {showScrollTop && (
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            onClick={scrollToTop}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="fixed bottom-6 right-6 z-30 p-3 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 text-white shadow-xl shadow-purple-900/40 hover:scale-110 active:scale-95 transition-all cursor-pointer border border-white/20"
             aria-label="Scroll to top"
           >

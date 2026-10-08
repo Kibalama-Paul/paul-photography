@@ -4,12 +4,14 @@ import {
   getGalleryItems, addGalleryItem, updateGalleryItem,
   toggleFeaturedGalleryItem, deleteGalleryItem, resetGallery
 } from '../utils/galleryStore';
+import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, KeyRound, Upload, Image as ImageIcon, Trash2, CheckCircle2,
   RefreshCw, LogOut, ShieldAlert, Plus, Eye, Download,
-  Phone, Mail, Calendar, MapPin, Tag, Clock, MessageSquare, ExternalLink,
-  Settings, FileJson, Pencil, Star, X, Check
+  Phone, Calendar, MapPin, Clock, MessageSquare, ExternalLink,
+  Settings, FileJson, Pencil, Star, X, Check, BadgeCheck, Hourglass,
+  FileText, Printer, FileDown, Receipt
 } from 'lucide-react';
 
 interface AdminDashboardPageProps {
@@ -30,8 +32,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   });
   const [newPin, setNewPin] = useState('');
 
-  // Active Tab: 'upload' | 'gallery' | 'bookings' | 'settings'
-  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'settings'>('upload');
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'receipts' | 'settings'>('upload');
 
   // Gallery state
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() => getGalleryItems());
@@ -55,6 +57,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
   // Bookings state
   const [bookings, setBookings] = useState<BookingSubmission[]>([]);
+
+  // ── Receipt Builder state ──────────────────────────────────────────
+  const [rb, setRb] = useState<ReceiptData>({
+    receiptNo: '', clientName: '', clientPhone: '', shootType: '',
+    location: '', shootDate: '', amountPaid: '', paymentMethod: 'Airtel Money',
+    transactionId: '', notes: '', issuedAt: new Date().toISOString(),
+    extraItems: []
+  });
+  const [rbSuccess, setRbSuccess] = useState(false);
+
+  const resetRb = () => setRb({
+    receiptNo: `RCP-${Math.floor(1000 + Math.random() * 9000)}`,
+    clientName: '', clientPhone: '', shootType: '',
+    location: '', shootDate: '', amountPaid: '', paymentMethod: 'Airtel Money',
+    transactionId: '', notes: '', issuedAt: new Date().toISOString(),
+    extraItems: []
+  });
 
 
   // Load Bookings & Gallery sync
@@ -192,6 +211,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     if (window.confirm('Reset gallery to default factory dataset? Custom uploaded images and edits will be cleared.')) {
       resetGallery();
     }
+  };
+
+  // Approve Booking — sets adminApproved: true so client page detects it
+  const handleApproveBooking = (id: string) => {
+    const updated = bookings.map((b) =>
+      b.id === id
+        ? { ...b, adminApproved: true, adminApprovedAt: new Date().toISOString(), status: 'confirmed' as const }
+        : b
+    );
+    setBookings(updated);
+    localStorage.setItem('paul_bookings', JSON.stringify(updated));
   };
 
   // Delete Booking
@@ -365,7 +395,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Bookings Received ({bookings.length})</span>
+          <span>Bookings ({bookings.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('receipts')}
+          className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all ${activeTab === 'receipts'
+              ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-lg'
+              : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+            }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>Receipt Builder</span>
         </button>
 
         <button
@@ -889,6 +930,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           Payment Pending
                         </span>
                       )}
+                      {/* Approval status badge */}
+                      {b.adminApproved ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 uppercase flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3" /> Approved
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1">
+                          <Hourglass className="w-3 h-3" /> Awaiting Approval
+                        </span>
+                      )}
                     </div>
 
                     {b.transactionId && (
@@ -911,10 +962,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         <strong className="text-white">{b.phone || 'N/A'}</strong>
                       </span>
                       <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5 text-purple-400" />
-                        <span>{b.email}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-cyan-400" />
                         <span>{b.datetime?.replace('T', ' at ')}</span>
                       </span>
@@ -934,15 +981,46 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {/* Approve button — triggers client-side success screen */}
+                    {!b.adminApproved && (
+                      <button
+                        onClick={() => handleApproveBooking(b.id)}
+                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-emerald-900/30 hover:scale-105"
+                        title="Approve this booking — client will see success screen"
+                      >
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        <span>Approve Booking</span>
+                      </button>
+                    )}
+
+                    {/* Receipt buttons */}
+                    <button
+                      onClick={() => printReceipt(bookingToReceiptData(b))}
+                      className="px-3 py-1.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                      title="Open printable receipt"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print</span>
+                    </button>
+
+                    <button
+                      onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                      title="Download receipt as HTML file"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      <span>Receipt</span>
+                    </button>
+
                     <a
                       href={`https://wa.me/${(b.phone || '256757460297').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${b.name}, this is Kibalama Paul regarding your photoshoot booking ref ${b.id}.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      <span>WhatsApp Client</span>
+                      <span>WhatsApp</span>
                     </a>
 
                     <button
@@ -955,6 +1033,245 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB: RECEIPT BUILDER                                  */}
+      {/* ---------------------------------------------------- */}
+      {activeTab === 'receipts' && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl mx-auto space-y-6">
+
+          {/* Header card */}
+          <div className="glass-panel-light rounded-3xl p-6 sm:p-8 border border-white/20 shadow-xl">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-violet-400" />
+                  <span>Manual Receipt Builder</span>
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Create a custom printable receipt for any client or transaction.</p>
+              </div>
+              {/* Prefill from booking dropdown */}
+              {bookings.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Pre-fill from booking</label>
+                  <select
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const found = bookings.find(b => b.id === e.target.value);
+                      if (found) setRb(bookingToReceiptData(found));
+                    }}
+                    defaultValue=""
+                    className="px-3 py-2 bg-neutral-900 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-violet-400 cursor-pointer"
+                  >
+                    <option value="">— Select a booking —</option>
+                    {bookings.map(b => (
+                      <option key={b.id} value={b.id}>{b.id} — {b.name} ({b.shootType})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Receipt No */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Receipt Number</label>
+                <input type="text" placeholder="e.g. RCP-2045 (auto if blank)"
+                  value={rb.receiptNo || ''} onChange={e => setRb({ ...rb, receiptNo: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400 font-mono" />
+              </div>
+              {/* Issued date */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Date of Issue</label>
+                <input type="datetime-local"
+                  value={rb.issuedAt ? rb.issuedAt.slice(0, 16) : ''}
+                  onChange={e => setRb({ ...rb, issuedAt: new Date(e.target.value).toISOString() })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Client Name */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Client Full Name *</label>
+                <input type="text" placeholder="e.g. Sarah Jenkins" required
+                  value={rb.clientName} onChange={e => setRb({ ...rb, clientName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Client Phone */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Client Phone</label>
+                <input type="tel" placeholder="+256 700 000 000"
+                  value={rb.clientPhone || ''} onChange={e => setRb({ ...rb, clientPhone: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Service */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Service / Shoot Type *</label>
+                <input type="text" placeholder="e.g. Wedding Photography" required
+                  value={rb.shootType} onChange={e => setRb({ ...rb, shootType: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Shoot Date */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Shoot / Event Date & Time</label>
+                <input type="text" placeholder="e.g. 2026-10-15 at 10:00"
+                  value={rb.shootDate || ''} onChange={e => setRb({ ...rb, shootDate: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Location */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Location / Venue</label>
+                <input type="text" placeholder="e.g. Speke Resort, Kampala"
+                  value={rb.location || ''} onChange={e => setRb({ ...rb, location: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+              </div>
+              {/* Amount */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Amount Paid (UGX) *</label>
+                <input type="text" placeholder="e.g. 250,000" required
+                  value={rb.amountPaid} onChange={e => setRb({ ...rb, amountPaid: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {['50,000','100,000','150,000','200,000','300,000','500,000'].map(a => (
+                    <button key={a} type="button" onClick={() => setRb({ ...rb, amountPaid: a })}
+                      className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 text-gray-300 rounded-md border border-white/10 cursor-pointer">{a}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Payment method */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Payment Method</label>
+                <select value={rb.paymentMethod || 'Airtel Money'} onChange={e => setRb({ ...rb, paymentMethod: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-neutral-900 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-violet-400 cursor-pointer">
+                  <option>Airtel Money</option>
+                  <option>MTN Mobile Money</option>
+                  <option>Cash</option>
+                  <option>Bank Transfer</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              {/* Transaction ID */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Transaction ID / Reference</label>
+                <input type="text" placeholder="e.g. MP261007.1420.A192" 
+                  value={rb.transactionId || ''} onChange={e => setRb({ ...rb, transactionId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400 font-mono" />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="mt-4">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Notes / Special Remarks</label>
+              <textarea rows={2} placeholder="e.g. 50% deposit paid. Balance due on shoot day."
+                value={rb.notes || ''} onChange={e => setRb({ ...rb, notes: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+            </div>
+
+            {/* Extra line items */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-300">Extra Line Items (optional)</label>
+                <button type="button"
+                  onClick={() => setRb({ ...rb, extraItems: [...(rb.extraItems || []), { description: '', amount: '' }] })}
+                  className="text-[10px] font-bold text-violet-400 hover:text-violet-300 flex items-center gap-1 cursor-pointer">
+                  <Plus className="w-3 h-3" /> Add Item
+                </button>
+              </div>
+              {(rb.extraItems || []).map((item, i) => (
+                <div key={i} className="flex gap-2 mb-2">
+                  <input type="text" placeholder="Description" value={item.description}
+                    onChange={e => {
+                      const items = [...(rb.extraItems || [])];
+                      items[i] = { ...items[i], description: e.target.value };
+                      setRb({ ...rb, extraItems: items });
+                    }}
+                    className="flex-1 px-3 py-2 bg-black/40 border border-white/20 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+                  <input type="text" placeholder="Amount" value={item.amount}
+                    onChange={e => {
+                      const items = [...(rb.extraItems || [])];
+                      items[i] = { ...items[i], amount: e.target.value };
+                      setRb({ ...rb, extraItems: items });
+                    }}
+                    className="w-32 px-3 py-2 bg-black/40 border border-white/20 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-400" />
+                  <button type="button"
+                    onClick={() => setRb({ ...rb, extraItems: (rb.extraItems || []).filter((_, j) => j !== i) })}
+                    className="p-2 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-300 cursor-pointer">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-6 border-t border-white/10">
+              <button
+                onClick={() => {
+                  if (!rb.clientName || !rb.shootType || !rb.amountPaid) {
+                    alert('Please fill in Client Name, Service, and Amount Paid.');
+                    return;
+                  }
+                  printReceipt(rb);
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-violet-900/30">
+                <Printer className="w-4 h-4" />
+                <span>Print / Save as PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (!rb.clientName || !rb.shootType || !rb.amountPaid) {
+                    alert('Please fill in Client Name, Service, and Amount Paid.');
+                    return;
+                  }
+                  downloadReceiptHTML(rb);
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-indigo-900/30">
+                <FileDown className="w-4 h-4" />
+                <span>Download as HTML</span>
+              </button>
+              <button type="button" onClick={resetRb}
+                className="px-5 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer border border-white/10 transition-all">
+                <RefreshCw className="w-4 h-4" />
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Recent bookings quick-receipt list */}
+          {bookings.length > 0 && (
+            <div className="glass-panel-light rounded-3xl p-6 border border-white/20">
+              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-400" />
+                Quick Receipt — From Existing Bookings
+              </h3>
+              <div className="space-y-2">
+                {bookings.slice(0, 8).map(b => (
+                  <div key={b.id} className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-xl border border-white/10 flex-wrap">
+                    <div className="text-xs">
+                      <span className="font-mono text-violet-400 font-bold mr-2">{b.id}</span>
+                      <span className="text-white font-semibold">{b.name}</span>
+                      <span className="text-gray-400 mx-1.5">·</span>
+                      <span className="text-cyan-300">{b.shootType}</span>
+                      {b.amountPaid && <span className="text-emerald-400 font-bold ml-2">UGX {b.amountPaid}</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => printReceipt(bookingToReceiptData(b))}
+                        className="px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
+                        <Printer className="w-3 h-3" /> Print
+                      </button>
+                      <button onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
+                        <FileDown className="w-3 h-3" /> Download
+                      </button>
+                      <button onClick={() => { setRb(bookingToReceiptData(b)); }}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
+                        <Pencil className="w-3 h-3" /> Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </motion.div>
