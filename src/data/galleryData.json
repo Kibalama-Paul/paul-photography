@@ -5,7 +5,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299915/BSP_9839_eqsxwu.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 106,
@@ -445,7 +445,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599946/IMG_7053_ylksbe.jpg",
     "title": "Photo Shoot #52",
     "category": "events",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 53,
@@ -829,6 +829,6 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490765/IMG_7887_d3qefw.jpg",
     "title": "Photo Shoot #103",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   }
 ]
