@@ -2,13 +2,22 @@
 
 html {
   scroll-behavior: smooth;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-body, 'Plus Jakarta Sans', 'Inter', sans-serif);
 }
 
 /* ═══════════════════════════════════════════════════════
-   THEME VARIABLES — dark (default) & light
+   PREMIUM PHOTOGRAPHY TYPOGRAPHY & THEME SYSTEM
+   • Headings: Satoshi (Razor-sharp, geometric, luxury)
+   • Body: Plus Jakarta Sans / Inter (Crisp, modern, readable)
+   • Monospace: Space Mono (Badges, metadata, receipts)
+   • Editorial: Playfair Display / Instrument Serif
 ═══════════════════════════════════════════════════════ */
 :root {
+  --font-heading: 'Satoshi', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-serif: 'Playfair Display', 'Instrument Serif', Georgia, serif;
+
   --bg-base:         #0a0a0e;
   --bg-surface:      #111118;
   --bg-raised:       #16161f;
@@ -25,6 +34,33 @@ html {
   --neu-inset:       inset 3px 3px 6px rgba(0,0,0,0.4), inset -3px -3px 6px rgba(255,255,255,0.08);
   --neu-button:      4px 4px 10px rgba(0,0,0,0.3), -3px -3px 8px rgba(255,255,255,0.08);
 }
+
+/* Base Body Typography */
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* Headings Typography */
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.025em;
+}
+
+/* Typography Utility Classes */
+.font-satoshi { font-family: 'Satoshi', sans-serif !important; }
+.font-inter { font-family: 'Inter', sans-serif !important; }
+.font-instrument { font-family: 'Instrument Serif', Georgia, serif !important; }
+.font-jakarta { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+.font-clash { font-family: 'Clash Display', sans-serif !important; }
+.font-spacemono { font-family: 'Space Mono', monospace !important; }
+.font-poppins { font-family: 'Poppins', sans-serif !important; }
+.font-playfair { font-family: 'Playfair Display', Georgia, serif !important; }
+.font-lora { font-family: 'Lora', Georgia, serif !important; }
+.font-editorial { font-family: var(--font-serif) !important; }
 
 html.light {
   --bg-base:         #f0f4f8;
@@ -44,17 +80,11 @@ html.light {
   --neu-button:      4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.9);
 }
 
-/* Apply base bg/text via CSS vars */
-body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
-  transition: background-color 0.35s ease, color 0.35s ease;
-}
-
 /* ═══════════════════════════════════════════════════════
    LIGHT THEME — override key structural classes
 ═══════════════════════════════════════════════════════ */
-html.light .min-h-screen.bg-\[#0a0a0e\] {
+html.light .min-h-screen,
+html.light #app-root {
   background-color: var(--bg-base) !important;
   color: var(--text-primary) !important;
 }

@@ -9,7 +9,12 @@ interface NavbarProps {
   onToggleTheme: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, theme, onToggleTheme }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  currentPage,
+  onNavigate,
+  theme,
+  onToggleTheme
+}) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -129,6 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, theme, 
 
         {/* Mobile controls */}
         <div className="flex md:hidden items-center gap-2">
+
           {/* Theme toggle (mobile) */}
           <button
             onClick={onToggleTheme}

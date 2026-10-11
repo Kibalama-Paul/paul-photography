@@ -6,6 +6,70 @@ const DELETED_KEY = 'paul_deleted_gallery_ids';
 const EDITED_KEY = 'paul_edited_gallery_items';
 const FEATURED_KEY = 'paul_featured_gallery_ids';
 
+export const deduplicateItems = (items: GalleryItem[]): GalleryItem[] => {
+  const seenIds = new Set<number>();
+  const seenUrls = new Set<string>();
+  const result: GalleryItem[] = [];
+
+  for (const item of items) {
+    if (!item) continue;
+    const normUrl = (item.frontImg || '').trim().toLowerCase();
+    
+    // Check if ID or image URL is already present
+    if (seenIds.has(item.id) || (normUrl && seenUrls.has(normUrl))) {
+      continue;
+    }
+
+    seenIds.add(item.id);
+    if (normUrl) {
+      seenUrls.add(normUrl);
+    }
+    result.push(item);
+  }
+
+  return result;
+};
+
+export const deduplicateGallery = (): { removedCount: number } => {
+  try {
+    const rawCustomRaw = localStorage.getItem(STORAGE_KEY);
+    const customItems: GalleryItem[] = rawCustomRaw ? JSON.parse(rawCustomRaw) : [];
+    
+    const beforeCount = customItems.length;
+    const dedupedCustom = deduplicateItems(customItems);
+    
+    // Further filter out custom items that already exist in default GALLERY_ITEMS
+    const defaultUrls = new Set(GALLERY_ITEMS.map((g) => (g.frontImg || '').trim().toLowerCase()));
+    const defaultIds = new Set(GALLERY_ITEMS.map((g) => g.id));
+    const finalCustom = dedupedCustom.filter(
+      (c) => !defaultIds.has(c.id) && !defaultUrls.has((c.frontImg || '').trim().toLowerCase())
+    );
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(finalCustom));
+
+    // Deduplicate featured IDs
+    const featuredIdsRaw = localStorage.getItem(FEATURED_KEY);
+    if (featuredIdsRaw) {
+      const featuredIds: number[] = JSON.parse(featuredIdsRaw);
+      localStorage.setItem(FEATURED_KEY, JSON.stringify([...new Set(featuredIds)]));
+    }
+
+    // Deduplicate deleted IDs
+    const deletedIdsRaw = localStorage.getItem(DELETED_KEY);
+    if (deletedIdsRaw) {
+      const deletedIds: number[] = JSON.parse(deletedIdsRaw);
+      localStorage.setItem(DELETED_KEY, JSON.stringify([...new Set(deletedIds)]));
+    }
+
+    const removedCount = Math.max(0, beforeCount - finalCustom.length);
+    window.dispatchEvent(new Event('paul_gallery_updated'));
+    return { removedCount };
+  } catch (e) {
+    console.error('Error deduplicating gallery:', e);
+    return { removedCount: 0 };
+  }
+};
+
 export const getGalleryItems = (): GalleryItem[] => {
   try {
     const customItemsRaw = localStorage.getItem(STORAGE_KEY);
@@ -30,13 +94,15 @@ export const getGalleryItems = (): GalleryItem[] => {
     const combined = [...customItems, ...filteredDefaults];
 
     // Attach isFeatured property
-    return combined.map((item) => ({
+    const withFeatured = combined.map((item) => ({
       ...item,
       isFeatured: featuredIds.includes(item.id)
     }));
+
+    return deduplicateItems(withFeatured);
   } catch (e) {
     console.error('Failed to parse gallery from storage:', e);
-    return GALLERY_ITEMS;
+    return deduplicateItems(GALLERY_ITEMS);
   }
 };
 
@@ -54,14 +120,25 @@ export const getFeaturedGalleryItems = (): GalleryItem[] => {
   return [...featured, ...remaining].slice(0, 4);
 };
 
-export const addGalleryItem = (newItem: Omit<GalleryItem, 'id'> & { id?: number; isFeatured?: boolean }): GalleryItem => {
+export const addGalleryItem = (newItem: Omit<GalleryItem, 'id'> & { id?: number; isFeatured?: boolean }): GalleryItem | null => {
   const existing = getGalleryItems();
+  const normFront = (newItem.frontImg || '').trim().toLowerCase();
+
+  // Prevent duplicate if an image with this URL already exists
+  const existingDuplicate = existing.find(
+    (item) => (item.frontImg || '').trim().toLowerCase() === normFront
+  );
+  if (existingDuplicate) {
+    console.warn('Image already exists in gallery as #' + existingDuplicate.id);
+    return null;
+  }
+
   const nextId = newItem.id || Math.max(0, ...existing.map((i) => i.id)) + 1;
 
   const itemToAdd: GalleryItem = {
     id: nextId,
-    frontImg: newItem.frontImg,
-    backImg: newItem.backImg || newItem.frontImg,
+    frontImg: newItem.frontImg.trim(),
+    backImg: (newItem.backImg || newItem.frontImg).trim(),
     title: newItem.title || `Capture #${nextId.toString().padStart(3, '0')}`,
     category: newItem.category || 'portrait',
     isFeatured: !!newItem.isFeatured
@@ -70,7 +147,7 @@ export const addGalleryItem = (newItem: Omit<GalleryItem, 'id'> & { id?: number;
   try {
     const customItemsRaw = localStorage.getItem(STORAGE_KEY);
     const customItems: GalleryItem[] = customItemsRaw ? JSON.parse(customItemsRaw) : [];
-    const updatedCustom = [itemToAdd, ...customItems];
+    const updatedCustom = deduplicateItems([itemToAdd, ...customItems]);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCustom));
 
     if (newItem.isFeatured) {
@@ -171,7 +248,8 @@ export const resetGallery = (): void => {
 
 export const importGalleryItems = (items: GalleryItem[]): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    const unique = deduplicateItems(items);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(unique));
     localStorage.removeItem(DELETED_KEY);
     localStorage.removeItem(EDITED_KEY);
     localStorage.removeItem(FEATURED_KEY);

@@ -1,14 +1,29 @@
 import rawCards from './galleryData.json';
 import { GalleryItem } from '../types';
 
-export const GALLERY_ITEMS: GalleryItem[] = (rawCards as Array<{
+const rawList = (rawCards as Array<{
   id: number;
   frontImg: string;
   backImg: string;
   title?: string;
   category?: GalleryItem['category'];
   isFeatured?: boolean;
-}>).map((card, idx) => {
+}>);
+
+const seenIds = new Set<number>();
+const seenUrls = new Set<string>();
+const uniqueList: GalleryItem[] = [];
+
+rawList.forEach((card, idx) => {
+  const normUrl = (card.frontImg || '').trim().toLowerCase();
+  if (seenIds.has(card.id) || (normUrl && seenUrls.has(normUrl))) {
+    return;
+  }
+  seenIds.add(card.id);
+  if (normUrl) {
+    seenUrls.add(normUrl);
+  }
+
   let category: GalleryItem['category'] = card.category || 'portrait';
   if (!card.category) {
     const url = (card.frontImg + ' ' + card.backImg).toLowerCase();
@@ -23,13 +38,15 @@ export const GALLERY_ITEMS: GalleryItem[] = (rawCards as Array<{
     }
   }
 
-  return {
+  uniqueList.push({
     id: card.id,
     frontImg: card.frontImg,
-    backImg: card.backImg,
+    backImg: card.backImg || card.frontImg,
     title: card.title || `Capture #${card.id.toString().padStart(3, '0')}`,
     category,
     isFeatured: !!card.isFeatured
-  };
+  });
 });
+
+export const GALLERY_ITEMS: GalleryItem[] = uniqueList;
 

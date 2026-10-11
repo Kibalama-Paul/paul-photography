@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PageRoute, GalleryItem, BookingSubmission } from '../types';
 import {
   getGalleryItems, addGalleryItem, updateGalleryItem,
-  toggleFeaturedGalleryItem, deleteGalleryItem, resetGallery
+  toggleFeaturedGalleryItem, deleteGalleryItem, resetGallery,
+  deduplicateGallery, deduplicateItems
 } from '../utils/galleryStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +12,7 @@ import {
   RefreshCw, LogOut, ShieldAlert, Plus, Eye, Download,
   Phone, Calendar, MapPin, Clock, MessageSquare, ExternalLink,
   Settings, FileJson, Pencil, Star, X, Check, BadgeCheck, Hourglass,
-  FileText, Printer, FileDown, Receipt
+  FileText, Printer, FileDown, Receipt, Sparkles
 } from 'lucide-react';
 
 interface AdminDashboardPageProps {
@@ -54,6 +55,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   // Vercel & GitHub sync UI states
   const [copiedJson, setCopiedJson] = useState(false);
   const [showVercelGuide, setShowVercelGuide] = useState(true);
+  const [dedupeMessage, setDedupeMessage] = useState<string | null>(null);
 
   // Bookings state
   const [bookings, setBookings] = useState<BookingSubmission[]>([]);
@@ -161,13 +163,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       return;
     }
 
-    addGalleryItem({
+    const normFront = frontImgUrl.trim().toLowerCase();
+    const existingDupe = galleryItems.find(
+      (item) => (item.frontImg || '').trim().toLowerCase() === normFront
+    );
+    if (existingDupe) {
+      alert(`This photo is already in the gallery as #${existingDupe.id} ("${existingDupe.title}"). Duplicate upload was prevented.`);
+      return;
+    }
+
+    const added = addGalleryItem({
       title: title || `Capture #${(galleryItems.length + 1).toString().padStart(3, '0')}`,
       category,
-      frontImg: frontImgUrl,
-      backImg: backImgUrl || frontImgUrl,
+      frontImg: frontImgUrl.trim(),
+      backImg: (backImgUrl || frontImgUrl).trim(),
       isFeatured: isFeaturedUpload
     });
+
+    if (!added) {
+      alert('This photo already exists in the gallery. Duplicate upload prevented.');
+      return;
+    }
 
     setUploadSuccess(true);
     setTitle('');
@@ -206,6 +222,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
+  // Deduplicate Gallery (Scans & cleans duplicate entries)
+  const handleDeduplicate = () => {
+    const result = deduplicateGallery();
+    const current = getGalleryItems();
+    setGalleryItems(current);
+    if (result.removedCount > 0) {
+      setDedupeMessage(`Cleaned and removed ${result.removedCount} duplicate image(s)!`);
+    } else {
+      setDedupeMessage('Gallery is already clean. No duplicate images found! ✓');
+    }
+    setTimeout(() => setDedupeMessage(null), 4000);
+  };
+
   // Reset Gallery
   const handleResetGallery = () => {
     if (window.confirm('Reset gallery to default factory dataset? Custom uploaded images and edits will be cleared.')) {
@@ -233,9 +262,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Export JSON Backup for Vercel & GitHub deployment
+  // Export JSON Backup for Vercel & GitHub deployment (Guaranteed deduplicated)
   const handleExportJSON = () => {
-    const cleanItems = galleryItems.map((item) => ({
+    const cleanItems = deduplicateItems(galleryItems).map((item) => ({
       id: item.id,
       frontImg: item.frontImg,
       backImg: item.backImg || item.frontImg,
@@ -253,7 +282,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   };
 
   const handleCopyJSON = () => {
-    const cleanItems = galleryItems.map((item) => ({
+    const cleanItems = deduplicateItems(galleryItems).map((item) => ({
       id: item.id,
       frontImg: item.frontImg,
       backImg: item.backImg || item.frontImg,
@@ -628,6 +657,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 </button>
 
                 <button
+                  onClick={handleDeduplicate}
+                  className="px-3.5 py-2.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 hover:text-white text-xs font-bold border border-purple-500/40 flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02]"
+                  title="Scan and remove any duplicate images"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-300" />
+                  <span>Clean Duplicates</span>
+                </button>
+
+                <button
                   onClick={handleResetGallery}
                   className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold border border-white/10 flex items-center gap-1.5 cursor-pointer transition-all"
                   title="Reset to factory dataset"
@@ -660,6 +698,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
           </div>
 
+          {/* Deduplication Feedback Notification Banner */}
+          <AnimatePresence>
+            {dedupeMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-6 p-4 rounded-2xl bg-purple-900/40 border border-purple-400/50 text-purple-200 text-xs font-semibold flex items-center gap-3 shadow-lg"
+              >
+                <Sparkles className="w-5 h-5 text-purple-300 shrink-0" />
+                <span>{dedupeMessage}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-cyan-400" />
+              <span>Gallery Catalog</span>
+              <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-mono lowercase">
+                {galleryItems.length} unique photos
+              </span>
+            </h3>
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {galleryItems.map((item) => (
@@ -1282,6 +1344,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ---------------------------------------------------- */}
       {activeTab === 'settings' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
+          {/* Change PIN Card */}
           <div className="glass-panel-light p-6 sm:p-8 rounded-3xl border border-white/20">
             <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
               <Lock className="w-5 h-5 text-purple-400" />
