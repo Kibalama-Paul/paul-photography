@@ -13,7 +13,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299916/BSP_9730_t5mmo2.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 105,
@@ -21,7 +21,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299932/BSP_9537_lrtsc2.jpg",
     "title": "Studio Portait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 107,
@@ -37,7 +37,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299916/BSP_9730_t5mmo2.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 105,
@@ -45,7 +45,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299932/BSP_9537_lrtsc2.jpg",
     "title": "Studio Portait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 104,
@@ -469,7 +469,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599946/IMG_7053_ylksbe.jpg",
     "title": "Photo Shoot #52",
     "category": "events",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 53,
@@ -853,6 +853,6 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1760490765/IMG_7887_d3qefw.jpg",
     "title": "Photo Shoot #103",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   }
 ]
