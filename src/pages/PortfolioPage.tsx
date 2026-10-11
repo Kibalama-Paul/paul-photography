@@ -1,33 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { PageRoute } from '../types';
+import { PageRoute, PortfolioMediaItem } from '../types';
+import { getPortfolioMediaBySection, PORTFOLIO_MEDIA_EVENT } from '../utils/portfolioMediaStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Briefcase, Film, Calendar, CheckCircle, Play, Pause } from 'lucide-react';
+import { Award, Briefcase, Film, Calendar, CheckCircle, Play, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
 interface PortfolioPageProps {
   onNavigate: (page: PageRoute) => void;
 }
 
 export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
-  const profileImages = [
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/OBI_8725_arcf8s.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_MG_2308_ecpaj0.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599978/IMG_9943_wdykjr.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599976/_MG_0860_lms0rk.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_PIT9552_zdb4rf.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599974/IMG_0154_ytjsqi.jpg",
-    "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599975/OBI_8756_rgpico.jpg",
-  ];
+  const [portfolioMedia, setPortfolioMedia] = useState<PortfolioMediaItem[]>(() => getPortfolioMediaBySection('portfolio'));
+  const [ceoReelMedia, setCeoReelMedia] = useState<PortfolioMediaItem[]>(() => getPortfolioMediaBySection('ceo-reel'));
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isPlayingReel, setIsPlayingReel] = useState(true);
+  const [lightboxItem, setLightboxItem] = useState<PortfolioMediaItem | null>(null);
+
+  // Sync with store updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      setPortfolioMedia(getPortfolioMediaBySection('portfolio'));
+      setCeoReelMedia(getPortfolioMediaBySection('ceo-reel'));
+    };
+    window.addEventListener(PORTFOLIO_MEDIA_EVENT, handleUpdate);
+    return () => window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleUpdate);
+  }, []);
+
+  // Profile images for the rotating hero — use portfolio images
+  const profileImages = portfolioMedia.filter((m) => m.type === 'image').map((m) => m.url);
 
   // Auto-cycle profile images every 2.5 seconds
   useEffect(() => {
+    if (profileImages.length === 0) return;
     const timer = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % profileImages.length);
     }, 2500);
     return () => clearInterval(timer);
   }, [profileImages.length]);
+
+  // Reset index if it's out of range
+  useEffect(() => {
+    if (currentImageIndex >= profileImages.length && profileImages.length > 0) {
+      setCurrentImageIndex(0);
+    }
+  }, [profileImages.length, currentImageIndex]);
 
   const skills = [
     "Portrait Photography",
@@ -69,6 +84,23 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
     }
   ];
 
+  // Lightbox navigation for portfolio gallery
+  const portfolioGalleryItems = portfolioMedia.filter((m) => m.type === 'image' || m.type === 'video');
+
+  const handleLightboxPrev = () => {
+    if (!lightboxItem) return;
+    const idx = portfolioGalleryItems.findIndex((m) => m.id === lightboxItem.id);
+    if (idx > 0) setLightboxItem(portfolioGalleryItems[idx - 1]);
+    else setLightboxItem(portfolioGalleryItems[portfolioGalleryItems.length - 1]);
+  };
+
+  const handleLightboxNext = () => {
+    if (!lightboxItem) return;
+    const idx = portfolioGalleryItems.findIndex((m) => m.id === lightboxItem.id);
+    if (idx < portfolioGalleryItems.length - 1) setLightboxItem(portfolioGalleryItems[idx + 1]);
+    else setLightboxItem(portfolioGalleryItems[0]);
+  };
+
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
       {/* Background ambient gradient */}
@@ -96,42 +128,52 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
           {/* Dynamic Profile Image Rotator */}
           <div className="md:col-span-5 flex flex-col items-center">
             <div className="relative w-64 h-80 sm:w-72 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border-2 border-purple-500/30 group">
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={currentImageIndex}
-                  src={profileImages[currentImageIndex]}
-                  alt="Kibalama Paul"
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full h-full object-cover"
-                />
-              </AnimatePresence>
+              {profileImages.length > 0 ? (
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={currentImageIndex}
+                    src={profileImages[currentImageIndex]}
+                    alt="Kibalama Paul"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full h-full object-cover"
+                  />
+                </AnimatePresence>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+                  No images added yet
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
                 <span className="font-semibold bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-md">
                   Kibalama Paul
                 </span>
-                <span className="text-[10px] text-gray-300 bg-purple-900/60 px-2 py-0.5 rounded-md">
-                  {currentImageIndex + 1} / {profileImages.length}
-                </span>
+                {profileImages.length > 0 && (
+                  <span className="text-[10px] text-gray-300 bg-purple-900/60 px-2 py-0.5 rounded-md">
+                    {currentImageIndex + 1} / {profileImages.length}
+                  </span>
+                )}
               </div>
             </div>
 
             {/* Thumbnail dots selector */}
-            <div className="flex gap-2 mt-4">
-              {profileImages.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentImageIndex(i)}
-                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                    i === currentImageIndex ? 'w-6 bg-cyan-400' : 'w-2 bg-white/20 hover:bg-white/40'
-                  }`}
-                  aria-label={`Photo ${i + 1}`}
-                />
-              ))}
-            </div>
+            {profileImages.length > 1 && (
+              <div className="flex gap-2 mt-4">
+                {profileImages.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentImageIndex(i)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      i === currentImageIndex ? 'w-6 bg-cyan-400' : 'w-2 bg-white/20 hover:bg-white/40'
+                    }`}
+                    aria-label={`Photo ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Bio text */}
@@ -217,38 +259,213 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* THE CEO REEL Video Section - Portrait Reel Format */}
+        {/* ── PORTFOLIO SHOWCASE GALLERY ─────────────────────────── */}
+        {portfolioMedia.length > 0 && (
+          <div className="mb-14 pt-8 border-t border-white/10">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">PORTFOLIO SHOWCASE</h2>
+              <p className="text-xs text-gray-400 mt-1">A curated collection of signature images & video work</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {portfolioMedia.map((media, index) => (
+                <motion.div
+                  key={media.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(index * 0.05, 0.5), duration: 0.4 }}
+                  className="relative group rounded-2xl overflow-hidden border border-white/15 bg-neutral-900 aspect-[3/4] cursor-pointer shadow-xl hover:border-purple-400/40 transition-all"
+                  onClick={() => setLightboxItem(media)}
+                >
+                  {media.type === 'image' ? (
+                    <img
+                      src={media.url}
+                      alt={media.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="relative w-full h-full">
+                      <video
+                        src={media.url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20">
+                          <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+                  {/* Title overlay */}
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-white drop-shadow-lg truncate">{media.title}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      media.type === 'video'
+                        ? 'bg-red-600/80 text-white'
+                        : 'bg-purple-600/80 text-purple-100'
+                    }`}>
+                      {media.type === 'video' ? '▶ Video' : 'Photo'}
+                    </span>
+                  </div>
+
+                  {/* Hover zoom icon */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="p-1.5 rounded-full bg-white/20 backdrop-blur-md">
+                      <ZoomIn className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── THE CEO REEL Video Section ─────────────────────────── */}
         <div className="pt-8 border-t border-white/10">
           <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">THE CEO REEL</h2>
             <p className="text-xs text-gray-400 mt-1">Official portrait video showreel featuring Kibalama Paul</p>
           </div>
 
-          <div className="max-w-xs sm:max-w-sm mx-auto rounded-3xl overflow-hidden border-2 border-purple-500/40 shadow-2xl bg-black relative aspect-[9/16] group">
-            <video
-              controls
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover"
-            >
-              <source
-                src="https://res.cloudinary.com/dirfcqs1f/video/upload/v1762193474/paulo_fdm1ai.mp4"
-                type="video/mp4"
-              />
-              Your browser does not support HTML5 video.
-            </video>
-            {/* Reel Badge Header */}
-            <div className="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
-              <span className="text-[10px] font-bold text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
-                REEL • 9:16 PORTRAIT
-              </span>
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+          {ceoReelMedia.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">
+              <Film className="w-12 h-12 mx-auto mb-3 stroke-1" />
+              <p className="text-sm">No CEO reel media added yet. Add items from the Admin Dashboard.</p>
             </div>
-          </div>
+          ) : (
+            <div className={`grid gap-6 ${
+              ceoReelMedia.length === 1
+                ? 'max-w-xs sm:max-w-sm mx-auto'
+                : ceoReelMedia.length === 2
+                  ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto'
+            }`}>
+              {ceoReelMedia.map((media) => (
+                <div key={media.id} className="rounded-3xl overflow-hidden border-2 border-purple-500/40 shadow-2xl bg-black relative aspect-[9/16] group">
+                  {media.type === 'video' ? (
+                    <>
+                      <video
+                        controls
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="w-full h-full object-cover"
+                      >
+                        <source src={media.url} type="video/mp4" />
+                        Your browser does not support HTML5 video.
+                      </video>
+                      {/* Reel Badge Header */}
+                      <div className="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
+                        <span className="text-[10px] font-bold text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                          REEL • 9:16 PORTRAIT
+                        </span>
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        src={media.url}
+                        alt={media.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                    </>
+                  )}
+                  {/* Title at the bottom */}
+                  <div className="absolute bottom-3 left-3 right-3 text-center pointer-events-none">
+                    <span className="text-xs font-bold text-white bg-black/50 backdrop-blur-md px-3 py-1 rounded-full">
+                      {media.title}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
+
+      {/* ── LIGHTBOX MODAL ──────────────────────────────── */}
+      <AnimatePresence>
+        {lightboxItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6"
+            onClick={() => setLightboxItem(null)}
+          >
+            {/* Top bar */}
+            <div
+              className="absolute top-4 left-4 right-4 flex items-center justify-between text-white z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-sm font-bold text-white bg-white/10 px-3 py-1 rounded-lg">
+                {lightboxItem.title}
+              </span>
+              <button
+                onClick={() => setLightboxItem(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Nav arrows */}
+            {portfolioGalleryItems.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleLightboxPrev(); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer z-10"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleLightboxNext(); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer z-10"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Media content */}
+            <motion.div
+              key={lightboxItem.id}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl max-h-[82vh] flex items-center justify-center rounded-2xl overflow-hidden border border-white/20 shadow-2xl bg-black"
+            >
+              {lightboxItem.type === 'image' ? (
+                <img
+                  src={lightboxItem.url}
+                  alt={lightboxItem.title}
+                  className="max-h-[80vh] w-auto max-w-full object-contain rounded-2xl"
+                />
+              ) : (
+                <video
+                  controls
+                  autoPlay
+                  className="max-h-[80vh] w-auto max-w-full rounded-2xl"
+                >
+                  <source src={lightboxItem.url} type="video/mp4" />
+                </video>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

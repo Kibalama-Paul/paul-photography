@@ -30,6 +30,17 @@ export interface BookingSubmission {
   adminApprovedAt?: string;
 }
 
+export interface PortfolioMediaItem {
+  id: string;
+  type: 'image' | 'video';
+  section: 'portfolio' | 'ceo-reel';
+  url: string;
+  thumbnailUrl?: string;
+  title: string;
+  order: number;
+  createdAt: string;
+}
+
 export interface ContactMessage {
   id: string;
   name: string;

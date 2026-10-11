@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { PageRoute, GalleryItem, BookingSubmission } from '../types';
+import { PageRoute, GalleryItem, BookingSubmission, PortfolioMediaItem } from '../types';
 import {
   getGalleryItems, addGalleryItem, updateGalleryItem,
   toggleFeaturedGalleryItem, deleteGalleryItem, resetGallery,
   deduplicateGallery, deduplicateItems
 } from '../utils/galleryStore';
+import {
+  getPortfolioMedia, getPortfolioMediaBySection,
+  addPortfolioMedia, updatePortfolioMedia, deletePortfolioMedia,
+  reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
+} from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,7 +17,8 @@ import {
   RefreshCw, LogOut, ShieldAlert, Plus, Eye, Download,
   Phone, Calendar, MapPin, Clock, MessageSquare, ExternalLink,
   Settings, FileJson, Pencil, Star, X, Check, BadgeCheck, Hourglass,
-  FileText, Printer, FileDown, Receipt, Sparkles
+  FileText, Printer, FileDown, Receipt, Sparkles, Film, Video,
+  ArrowUp, ArrowDown, Play
 } from 'lucide-react';
 
 interface AdminDashboardPageProps {
@@ -34,7 +40,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [newPin, setNewPin] = useState('');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'receipts' | 'settings'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'receipts' | 'portfolio-media' | 'settings'>('upload');
+
+  // Portfolio Media state
+  const [portfolioMediaItems, setPortfolioMediaItems] = useState<PortfolioMediaItem[]>(() => getPortfolioMedia());
+  const [mediaSection, setMediaSection] = useState<'portfolio' | 'ceo-reel'>('portfolio');
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [mediaTitle, setMediaTitle] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaUploadSuccess, setMediaUploadSuccess] = useState(false);
+  const [editingMedia, setEditingMedia] = useState<PortfolioMediaItem | null>(null);
 
   // Gallery state
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() => getGalleryItems());
@@ -78,7 +93,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   });
 
 
-  // Load Bookings & Gallery sync
+  // Load Bookings & Gallery & Portfolio Media sync
   useEffect(() => {
     const loadBookings = () => {
       try {
@@ -91,8 +106,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
     loadBookings();
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
+    const handleMediaUpdate = () => setPortfolioMediaItems(getPortfolioMedia());
     window.addEventListener('paul_gallery_updated', handleGalleryUpdate);
-    return () => window.removeEventListener('paul_gallery_updated', handleGalleryUpdate);
+    window.addEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
+    return () => {
+      window.removeEventListener('paul_gallery_updated', handleGalleryUpdate);
+      window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
+    };
   }, []);
 
   // Handle Login Authentication
@@ -153,6 +173,49 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // Portfolio Media file handler
+  const handleMediaFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (isEdit && editingMedia) {
+        setEditingMedia({ ...editingMedia, url: result });
+      } else {
+        setMediaUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Add portfolio media
+  const handleAddMedia = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaUrl.trim()) {
+      alert('Please provide a media URL or upload a file.');
+      return;
+    }
+    addPortfolioMedia({
+      type: mediaType,
+      section: mediaSection,
+      url: mediaUrl.trim(),
+      title: mediaTitle || `${mediaSection === 'ceo-reel' ? 'CEO Reel' : 'Portfolio'} ${mediaType === 'video' ? 'Video' : 'Image'}`,
+    });
+    setMediaTitle('');
+    setMediaUrl('');
+    setMediaUploadSuccess(true);
+    setTimeout(() => setMediaUploadSuccess(false), 3000);
+  };
+
+  // Save edited media
+  const handleSaveMedia = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMedia) return;
+    updatePortfolioMedia(editingMedia);
+    setEditingMedia(null);
   };
 
   // Submit New Image to Gallery
@@ -436,6 +499,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         >
           <Receipt className="w-4 h-4" />
           <span>Receipt Builder</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('portfolio-media')}
+          className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all ${activeTab === 'portfolio-media'
+              ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-lg'
+              : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+            }`}
+        >
+          <Film className="w-4 h-4" />
+          <span>Portfolio Media ({portfolioMediaItems.length})</span>
         </button>
 
         <button
@@ -1338,6 +1412,422 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           )}
         </motion.div>
       )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB: PORTFOLIO MEDIA MANAGER                          */}
+      {/* ---------------------------------------------------- */}
+      {activeTab === 'portfolio-media' && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+
+          {/* Add New Media Form */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-7 glass-panel-light rounded-3xl p-6 sm:p-8 border border-white/20 shadow-xl">
+              <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-cyan-400" />
+                <span>Add Media to Portfolio / CEO Reel</span>
+              </h2>
+              <p className="text-xs text-gray-300 mb-6">
+                Upload images or videos. They will appear on the Portfolio page in the section you choose.
+              </p>
+
+              {mediaUploadSuccess && (
+                <div className="mb-6 p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-3 text-xs font-semibold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span>Media added successfully! It's now live on the Portfolio page.</span>
+                </div>
+              )}
+
+              <form onSubmit={handleAddMedia} className="space-y-5">
+                {/* Section Selector */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-2">Target Section *</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMediaSection('portfolio')}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                        mediaSection === 'portfolio'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400/50 shadow-lg'
+                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span>Portfolio Showcase</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMediaSection('ceo-reel')}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                        mediaSection === 'ceo-reel'
+                          ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white border-red-400/50 shadow-lg'
+                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <Film className="w-4 h-4" />
+                      <span>CEO Reel</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Media Type */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-2">Media Type *</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMediaType('image')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                        mediaType === 'image'
+                          ? 'bg-cyan-600 text-white border-cyan-400/50'
+                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span>Image</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMediaType('video')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                        mediaType === 'video'
+                          ? 'bg-red-600 text-white border-red-400/50'
+                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Video</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-2">Title</label>
+                  <input
+                    type="text"
+                    placeholder={`e.g. ${mediaSection === 'ceo-reel' ? 'Behind the Scenes Reel' : 'Studio Portrait Session'}`}
+                    value={mediaTitle}
+                    onChange={(e) => setMediaTitle(e.target.value)}
+                    className="w-full px-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                {/* Media URL / File Upload */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-2">
+                    {mediaType === 'image' ? 'Image' : 'Video'} Source *
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <label className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer transition-all flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        <span>Choose File</span>
+                        <input
+                          type="file"
+                          accept={mediaType === 'image' ? 'image/*' : 'video/*'}
+                          onChange={(e) => handleMediaFileUpload(e)}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-xs text-gray-400">or enter URL:</span>
+                    </div>
+                    <input
+                      type="url"
+                      placeholder={mediaType === 'image'
+                        ? 'https://res.cloudinary.com/your-account/image/upload/...' 
+                        : 'https://res.cloudinary.com/your-account/video/upload/...'
+                      }
+                      value={mediaUrl}
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                      className="w-full px-4 py-3 bg-black/40 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 text-white font-bold text-base shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span>Add to {mediaSection === 'ceo-reel' ? 'CEO Reel' : 'Portfolio Showcase'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Preview Panel */}
+            <div className="lg:col-span-5 flex flex-col items-center">
+              <div className="glass-panel-light w-full rounded-3xl p-6 border border-white/20 text-center">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center justify-center gap-2">
+                  <span>Media Preview</span>
+                </h3>
+
+                <div className={`relative mx-auto rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-neutral-900 ${
+                  mediaSection === 'ceo-reel' ? 'w-48 aspect-[9/16]' : 'w-64 h-80'
+                }`}>
+                  {mediaUrl ? (
+                    mediaType === 'image' ? (
+                      <img src={mediaUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <video src={mediaUrl} controls muted className="w-full h-full object-cover" />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-4">
+                      {mediaType === 'image' ? (
+                        <ImageIcon className="w-12 h-12 mb-2 stroke-1" />
+                      ) : (
+                        <Video className="w-12 h-12 mb-2 stroke-1" />
+                      )}
+                      <span className="text-xs">Preview will appear here</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center text-white text-xs">
+                    <span className="font-semibold">{mediaTitle || 'Preview Title'}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold ${
+                      mediaSection === 'ceo-reel' ? 'bg-red-600' : 'bg-purple-600'
+                    }`}>
+                      {mediaSection === 'ceo-reel' ? 'Reel' : 'Portfolio'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-400">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                    mediaType === 'video' ? 'text-red-300 border-red-500/30 bg-red-950/30' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/30'
+                  }`}>
+                    {mediaType === 'video' ? <Video className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
+                    {mediaType === 'video' ? 'Video' : 'Image'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── PORTFOLIO SHOWCASE Items ──────────────────── */}
+          <div className="glass-panel-light rounded-3xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-purple-400" />
+                <span>Portfolio Showcase Items</span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-mono">
+                  {portfolioMediaItems.filter((m) => m.section === 'portfolio').length}
+                </span>
+              </h3>
+              <button
+                onClick={() => { if (window.confirm('Reset ALL portfolio media to defaults?')) resetPortfolioMedia(); }}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold border border-white/10 flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reset All</span>
+              </button>
+            </div>
+
+            {portfolioMediaItems.filter((m) => m.section === 'portfolio').sort((a, b) => a.order - b.order).length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <ImageIcon className="w-10 h-10 mx-auto mb-2 stroke-1" />
+                <p className="text-sm">No portfolio items yet. Add some above!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {portfolioMediaItems.filter((m) => m.section === 'portfolio').sort((a, b) => a.order - b.order).map((media) => (
+                  <div key={media.id} className="glass-panel rounded-2xl overflow-hidden border border-white/15 relative group flex flex-col">
+                    <div className="relative h-48 w-full bg-neutral-900 overflow-hidden">
+                      {media.type === 'image' ? (
+                        <img src={media.url} alt={media.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                      ) : (
+                        <div className="relative w-full h-full">
+                          <video src={media.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Play className="w-8 h-8 text-white/80 fill-white/80" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute top-2 left-2 flex items-center gap-1">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+                          media.type === 'video' ? 'bg-red-600/80' : 'bg-purple-600/80'
+                        }`}>
+                          {media.type === 'video' ? '▶ Video' : 'Photo'}
+                        </span>
+                      </div>
+                      <div className="absolute top-2 right-2 flex items-center gap-1">
+                        <button onClick={() => reorderPortfolioMedia(media.id, 'up')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => reorderPortfolioMedia(media.id, 'down')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setEditingMedia({ ...media })} className="p-1 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-white cursor-pointer transition-all" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { if (window.confirm('Delete this media item?')) deletePortfolioMedia(media.id); }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                    <div className="p-3 text-xs bg-black/40 border-t border-white/10">
+                      <div className="font-semibold text-white truncate" title={media.title}>{media.title}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── CEO REEL Items ───────────────────────────── */}
+          <div className="glass-panel-light rounded-3xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Film className="w-4 h-4 text-red-400" />
+                <span>CEO Reel Items</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-xs font-mono">
+                  {portfolioMediaItems.filter((m) => m.section === 'ceo-reel').length}
+                </span>
+              </h3>
+            </div>
+
+            {portfolioMediaItems.filter((m) => m.section === 'ceo-reel').sort((a, b) => a.order - b.order).length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <Film className="w-10 h-10 mx-auto mb-2 stroke-1" />
+                <p className="text-sm">No CEO reel items yet. Add a video or image above!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {portfolioMediaItems.filter((m) => m.section === 'ceo-reel').sort((a, b) => a.order - b.order).map((media) => (
+                  <div key={media.id} className="glass-panel rounded-2xl overflow-hidden border border-red-500/30 relative group flex flex-col">
+                    <div className="relative aspect-[9/16] w-full bg-neutral-900 overflow-hidden">
+                      {media.type === 'video' ? (
+                        <video src={media.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                      ) : (
+                        <img src={media.url} alt={media.title} className="w-full h-full object-cover" loading="lazy" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute top-2 left-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+                          media.type === 'video' ? 'bg-red-600/80' : 'bg-purple-600/80'
+                        }`}>
+                          {media.type === 'video' ? '▶ Video' : 'Photo'}
+                        </span>
+                      </div>
+                      <div className="absolute top-2 right-2 flex items-center gap-1">
+                        <button onClick={() => reorderPortfolioMedia(media.id, 'up')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => reorderPortfolioMedia(media.id, 'down')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setEditingMedia({ ...media })} className="p-1 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-white cursor-pointer transition-all" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { if (window.confirm('Delete this CEO reel item?')) deletePortfolioMedia(media.id); }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <div className="absolute bottom-2 left-2 right-2 text-center">
+                        <span className="text-xs font-bold text-white bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full">{media.title}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── EDIT MEDIA MODAL ──────────────────────────────── */}
+      <AnimatePresence>
+        {editingMedia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setEditingMedia(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel max-w-lg w-full rounded-3xl p-6 sm:p-8 border border-white/20 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Pencil className="w-5 h-5 text-cyan-400" />
+                  <span>Edit Media</span>
+                </h3>
+                <button onClick={() => setEditingMedia(null)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 cursor-pointer transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMedia} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-1">Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingMedia.title}
+                    onChange={(e) => setEditingMedia({ ...editingMedia, title: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-black/50 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-1">Section</label>
+                  <select
+                    value={editingMedia.section}
+                    onChange={(e) => setEditingMedia({ ...editingMedia, section: e.target.value as 'portfolio' | 'ceo-reel' })}
+                    className="w-full px-4 py-2.5 bg-neutral-900 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="portfolio">Portfolio Showcase</option>
+                    <option value="ceo-reel">CEO Reel</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-1">Media Type</label>
+                  <select
+                    value={editingMedia.type}
+                    onChange={(e) => setEditingMedia({ ...editingMedia, type: e.target.value as 'image' | 'video' })}
+                    className="w-full px-4 py-2.5 bg-neutral-900 border border-white/20 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-200 mb-1">URL</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      required
+                      value={editingMedia.url}
+                      onChange={(e) => setEditingMedia({ ...editingMedia, url: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-black/50 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400"
+                    />
+                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer transition-all">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Replace File</span>
+                      <input
+                        type="file"
+                        accept={editingMedia.type === 'image' ? 'image/*' : 'video/*'}
+                        onChange={(e) => handleMediaFileUpload(e, true)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div className="rounded-xl overflow-hidden border border-white/10 bg-neutral-900 max-h-48">
+                  {editingMedia.type === 'image' ? (
+                    <img src={editingMedia.url} alt="Preview" className="w-full h-48 object-cover" />
+                  ) : (
+                    <video src={editingMedia.url} controls muted className="w-full h-48 object-cover" />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                  <button type="button" onClick={() => setEditingMedia(null)} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg cursor-pointer flex items-center gap-1.5">
+                    <Check className="w-4 h-4" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ---------------------------------------------------- */}
       {/* TAB 4: SECURITY & SETTINGS */}
