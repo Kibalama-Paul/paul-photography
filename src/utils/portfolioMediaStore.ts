@@ -1,4 +1,5 @@
 import { PortfolioMediaItem } from '../types';
+import { broadcastPortfolioToCloud, fetchPortfolioFromCloud } from './cloudSync';
 
 const STORAGE_KEY = 'paul_portfolio_media';
 const EVENT_NAME = 'paul_portfolio_media_updated';
@@ -129,6 +130,8 @@ export const addPortfolioMedia = (item: Omit<PortfolioMediaItem, 'id' | 'created
   const updated = [...all, newItem];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   window.dispatchEvent(new Event(EVENT_NAME));
+  // Broadcast to cloud
+  broadcastPortfolioToCloud(updated).catch(() => {});
   return newItem;
 };
 
@@ -140,6 +143,8 @@ export const updatePortfolioMedia = (updatedItem: PortfolioMediaItem): void => {
   const updated = all.map((m) => (m.id === updatedItem.id ? { ...updatedItem } : m));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   window.dispatchEvent(new Event(EVENT_NAME));
+  // Broadcast to cloud
+  broadcastPortfolioToCloud(updated).catch(() => {});
 };
 
 /**
@@ -150,6 +155,8 @@ export const deletePortfolioMedia = (id: string): void => {
   const updated = all.filter((m) => m.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   window.dispatchEvent(new Event(EVENT_NAME));
+  // Broadcast to cloud
+  broadcastPortfolioToCloud(updated).catch(() => {});
 };
 
 /**
@@ -190,3 +197,20 @@ export const resetPortfolioMedia = (): void => {
 };
 
 export const PORTFOLIO_MEDIA_EVENT = EVENT_NAME;
+
+/**
+ * Pull portfolio media from cloud and merge with local.
+ * Called once on app startup to hydrate visitors on paulphotography256.com.
+ */
+export const syncPortfolioFromCloud = async (): Promise<void> => {
+  try {
+    const cloudItems = await fetchPortfolioFromCloud();
+    if (!cloudItems || cloudItems.length === 0) return;
+
+    // Replace local with cloud data (cloud is source of truth for portfolio)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudItems));
+    window.dispatchEvent(new Event(EVENT_NAME));
+  } catch (e) {
+    console.error('Error syncing portfolio from cloud:', e);
+  }
+};

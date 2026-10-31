@@ -7,6 +7,7 @@ import {
   AlertCircle, Hourglass, Sparkles, BadgeCheck, XCircle, ShieldX, FileDown, Printer
 } from 'lucide-react';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML } from '../utils/receiptGenerator';
+import { saveBookingToCloud, subscribeToBookingApproval } from '../utils/cloudSync';
 
 // ────────────────────────────────────────────────────────────────────
 // Airtel Money Uganda Transaction ID validator & SMS Parser
@@ -184,24 +185,20 @@ export const BookingPage: React.FC = () => {
     }
   }, [txnTouched]);
 
-  // ── Poll localStorage for admin approval ────────────────────────────
+  // ── Real-time Cloud & Local sync for admin approval ───────────────
   useEffect(() => {
     if (phase !== 'pending' || !pendingBooking) return;
-    pollRef.current = setInterval(() => {
-      try {
-        const raw = localStorage.getItem('paul_bookings') || '[]';
-        const bookings: BookingSubmission[] = JSON.parse(raw);
-        const found = bookings.find((b) => b.id === pendingBooking.id);
-        if (found?.adminApproved) {
-          clearInterval(pollRef.current!);
-          setApprovedBooking(found);
-          setPhase('approved');
-          setShowParticles(true);
-          setTimeout(() => setShowParticles(false), 2500);
-        }
-      } catch (_) {}
-    }, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+
+    const unsubscribe = subscribeToBookingApproval(pendingBooking.id, (approved) => {
+      setApprovedBooking(approved);
+      setPhase('approved');
+      setShowParticles(true);
+      setTimeout(() => setShowParticles(false), 2500);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [phase, pendingBooking]);
 
   // ── Helpers ─────────────────────────────────────────────────────────
@@ -272,10 +269,8 @@ export const BookingPage: React.FC = () => {
       adminApproved: false
     };
 
-    try {
-      const existing = JSON.parse(localStorage.getItem('paul_bookings') || '[]');
-      localStorage.setItem('paul_bookings', JSON.stringify([newBooking, ...existing]));
-    } catch (_) {}
+    // Save locally and broadcast to cloud so Admin receives it across all devices
+    saveBookingToCloud(newBooking);
 
     setTimeout(() => {
       setIsSubmitting(false);
@@ -690,13 +685,12 @@ export const BookingPage: React.FC = () => {
                                 setTxnValidity(validateTxnId(formData.transactionId));
                               }
                             }}
-                            className={`w-full px-3.5 py-2.5 pr-10 bg-neutral-900 border rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none font-mono transition-all ${
-                              txnValidity === 'valid'
+                            className={`w-full px-3.5 py-2.5 pr-10 bg-neutral-900 border rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none font-mono transition-all ${txnValidity === 'valid'
                                 ? 'border-emerald-500 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400'
                                 : txnValidity === 'invalid'
-                                ? 'border-red-500 focus:border-red-400 focus:ring-1 focus:ring-red-400'
-                                : 'border-white/20 focus:border-red-400 focus:ring-1 focus:ring-red-400'
-                            }`}
+                                  ? 'border-red-500 focus:border-red-400 focus:ring-1 focus:ring-red-400'
+                                  : 'border-white/20 focus:border-red-400 focus:ring-1 focus:ring-red-400'
+                              }`}
                           />
                           {/* Validity icon */}
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -820,11 +814,10 @@ export const BookingPage: React.FC = () => {
 
             {/* Submit */}
             <button type="submit" disabled={isSubmitting || (txnValidity === 'invalid' && formData.paymentConfirmed)}
-              className={`w-full py-4 px-4 rounded-2xl text-white font-bold text-sm sm:text-base shadow-xl neu-button flex items-center justify-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] mt-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                formData.paymentConfirmed
+              className={`w-full py-4 px-4 rounded-2xl text-white font-bold text-sm sm:text-base shadow-xl neu-button flex items-center justify-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] mt-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${formData.paymentConfirmed
                   ? 'bg-gradient-to-r from-red-600 via-rose-600 to-emerald-600 hover:from-red-500 hover:to-emerald-500 shadow-red-900/30'
                   : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 shadow-emerald-900/40'
-              }`}>
+                }`}>
               {isSubmitting ? (
                 <span className="inline-flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />

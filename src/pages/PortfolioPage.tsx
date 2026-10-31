@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageRoute, PortfolioMediaItem } from '../types';
 import { getPortfolioMediaBySection, PORTFOLIO_MEDIA_EVENT } from '../utils/portfolioMediaStore';
+import { subscribeToPortfolioUpdates, fetchPortfolioFromCloud } from '../utils/cloudSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Briefcase, Film, Calendar, CheckCircle, Play, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
@@ -15,7 +16,7 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [lightboxItem, setLightboxItem] = useState<PortfolioMediaItem | null>(null);
 
-  // Sync with store updates
+  // Sync with local store updates
   useEffect(() => {
     const handleUpdate = () => {
       setPortfolioMedia(getPortfolioMediaBySection('portfolio'));
@@ -24,6 +25,27 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
     window.addEventListener(PORTFOLIO_MEDIA_EVENT, handleUpdate);
     return () => window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleUpdate);
   }, []);
+
+  // ── Real-time cross-device sync ──────────────────────────────────
+  // Listens for SSE push from ntfy.sh so portfolio updates appear on all devices.
+  useEffect(() => {
+    const handleCloudUpdate = async () => {
+      try {
+        const cloudItems = await fetchPortfolioFromCloud();
+        if (cloudItems && cloudItems.length > 0) {
+          localStorage.setItem('paul_portfolio_media', JSON.stringify(cloudItems));
+          setPortfolioMedia(cloudItems.filter((m) => m.section === 'portfolio'));
+          setCeoReelMedia(cloudItems.filter((m) => m.section === 'ceo-reel'));
+        }
+      } catch {
+        // Silent fail
+      }
+    };
+
+    const unsubscribe = subscribeToPortfolioUpdates(handleCloudUpdate);
+    return unsubscribe;
+  }, []);
+
 
   // Profile images for the rotating hero — use portfolio images
   const profileImages = portfolioMedia.filter((m) => m.type === 'image').map((m) => m.url);

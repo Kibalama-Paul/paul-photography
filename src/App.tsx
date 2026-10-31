@@ -10,6 +10,7 @@ import { BookingPage } from './pages/BookingPage';
 import { ContactPage } from './pages/ContactPage';
 import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { initCloudSync } from './utils/cloudSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 
@@ -35,6 +36,13 @@ export const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
+  // ── Cloud Sync Initialization ──────────────────────────────────
+  // Hydrates this device with the latest gallery, portfolio & booking data
+  // from the cloud. Runs once on app startup on every device (phone/PC).
+  useEffect(() => {
+    initCloudSync();
+  }, []);
+
   // Sync with URL hash if provided
   useEffect(() => {
     const handleHashChange = () => {
@@ -54,6 +62,7 @@ export const App: React.FC = () => {
     window.addEventListener('scroll', checkScroll);
     return () => window.removeEventListener('scroll', checkScroll);
   }, []);
+
 
   const handleNavigate = (page: PageRoute) => {
     setCurrentPage(page);

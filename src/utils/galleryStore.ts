@@ -1,5 +1,6 @@
 import { GALLERY_ITEMS } from '../data/galleryData';
 import { GalleryItem } from '../types';
+import { broadcastGalleryToCloud, fetchGalleryFromCloud } from './cloudSync';
 
 const STORAGE_KEY = 'paul_custom_gallery';
 const DELETED_KEY = 'paul_deleted_gallery_ids';
@@ -155,6 +156,8 @@ export const addGalleryItem = (newItem: Omit<GalleryItem, 'id'> & { id?: number;
     }
     
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    // Broadcast to cloud for live website sync
+    broadcastGalleryToCloud(updatedCustom).catch(() => {});
   } catch (e) {
     console.error('Error saving gallery item:', e);
   }
@@ -183,6 +186,9 @@ export const updateGalleryItem = (updatedItem: GalleryItem): void => {
     }
 
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    // Broadcast to cloud
+    const allCustom = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    broadcastGalleryToCloud(allCustom).catch(() => {});
   } catch (e) {
     console.error('Error updating gallery item:', e);
   }
@@ -229,6 +235,9 @@ export const deleteGalleryItem = (id: number): void => {
     toggleFeaturedGalleryItem(id, false);
 
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    // Broadcast to cloud
+    const remainingCustom = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    broadcastGalleryToCloud(remainingCustom).catch(() => {});
   } catch (e) {
     console.error('Error deleting gallery item:', e);
   }
@@ -259,3 +268,23 @@ export const importGalleryItems = (items: GalleryItem[]): void => {
   }
 };
 
+/**
+ * Pull gallery items from cloud and merge with local.
+ * Called once on app startup to hydrate visitors on paulphotography256.com.
+ */
+export const syncGalleryFromCloud = async (): Promise<void> => {
+  try {
+    const cloudItems = await fetchGalleryFromCloud();
+    if (!cloudItems || cloudItems.length === 0) return;
+
+    const customItemsRaw = localStorage.getItem(STORAGE_KEY);
+    const localCustom: GalleryItem[] = customItemsRaw ? JSON.parse(customItemsRaw) : [];
+
+    // Merge: cloud items first, then local items, deduplicated
+    const merged = deduplicateItems([...cloudItems, ...localCustom]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    window.dispatchEvent(new Event('paul_gallery_updated'));
+  } catch (e) {
+    console.error('Error syncing gallery from cloud:', e);
+  }
+};

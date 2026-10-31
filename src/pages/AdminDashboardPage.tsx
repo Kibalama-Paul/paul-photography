@@ -11,6 +11,7 @@ import {
   reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
+import { fetchAllBookings, approveBookingInCloud, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, KeyRound, Upload, Image as ImageIcon, Trash2, CheckCircle2,
@@ -95,21 +96,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
   // Load Bookings & Gallery & Portfolio Media sync
   useEffect(() => {
-    const loadBookings = () => {
+    const loadBookings = async () => {
       try {
-        const raw = localStorage.getItem('paul_bookings');
-        setBookings(raw ? JSON.parse(raw) : []);
+        // Fetch from both localStorage and cloud, merge results
+        const merged = await fetchAllBookings();
+        setBookings(merged);
       } catch (e) {
         console.error('Error loading bookings:', e);
+        // Fallback to local only
+        try {
+          const raw = localStorage.getItem('paul_bookings');
+          setBookings(raw ? JSON.parse(raw) : []);
+        } catch (_) {}
       }
     };
 
     loadBookings();
+    // Re-fetch bookings every 10 seconds to catch cloud updates
+    const bookingPoll = setInterval(loadBookings, 10000);
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
     const handleMediaUpdate = () => setPortfolioMediaItems(getPortfolioMedia());
     window.addEventListener('paul_gallery_updated', handleGalleryUpdate);
     window.addEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
     return () => {
+      clearInterval(bookingPoll);
       window.removeEventListener('paul_gallery_updated', handleGalleryUpdate);
       window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
     };
@@ -144,8 +154,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Image Upload File Handler (converts local file to Data URL)
-  const handleFileUpload = (
+  // Image Upload File Handler — uploads to Cloudinary for cross-device sync, falls back to Data URL
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: 'front' | 'back',
     isEditMode = false
@@ -153,42 +163,86 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Get a local preview immediately
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = event.target?.result as string;
+      const localPreview = event.target?.result as string;
+      if (target === 'front') setFrontPreview(localPreview);
+      else setBackPreview(localPreview);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to Cloudinary for a permanent URL
+    try {
+      const cloudUrl = await uploadToCloudinary(file, 'gallery');
       if (isEditMode && editingItem) {
         if (target === 'front') {
-          setEditingItem({ ...editingItem, frontImg: result });
+          setEditingItem({ ...editingItem, frontImg: cloudUrl });
         } else {
-          setEditingItem({ ...editingItem, backImg: result });
+          setEditingItem({ ...editingItem, backImg: cloudUrl });
         }
       } else {
         if (target === 'front') {
-          setFrontImgUrl(result);
-          setFrontPreview(result);
+          setFrontImgUrl(cloudUrl);
+          setFrontPreview(cloudUrl);
         } else {
-          setBackImgUrl(result);
-          setBackPreview(result);
+          setBackImgUrl(cloudUrl);
+          setBackPreview(cloudUrl);
         }
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // Fallback to data URL if Cloudinary fails
+      const fallbackReader = new FileReader();
+      fallbackReader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (isEditMode && editingItem) {
+          if (target === 'front') {
+            setEditingItem({ ...editingItem, frontImg: result });
+          } else {
+            setEditingItem({ ...editingItem, backImg: result });
+          }
+        } else {
+          if (target === 'front') {
+            setFrontImgUrl(result);
+            setFrontPreview(result);
+          } else {
+            setBackImgUrl(result);
+            setBackPreview(result);
+          }
+        }
+      };
+      fallbackReader.readAsDataURL(file);
+    }
   };
 
-  // Portfolio Media file handler
-  const handleMediaFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+  // Portfolio Media file handler — uploads to Cloudinary for permanent URL
+  const handleMediaFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
+
+    const isVideo = file.type.startsWith('video/');
+    const folder = isVideo ? 'portfolio-videos' : 'portfolio';
+
+    try {
+      const cloudUrl = await uploadToCloudinary(file, folder);
       if (isEdit && editingMedia) {
-        setEditingMedia({ ...editingMedia, url: result });
+        setEditingMedia({ ...editingMedia, url: cloudUrl });
       } else {
-        setMediaUrl(result);
+        setMediaUrl(cloudUrl);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // Fallback to data URL
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (isEdit && editingMedia) {
+          setEditingMedia({ ...editingMedia, url: result });
+        } else {
+          setMediaUrl(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Add portfolio media
@@ -305,8 +359,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Approve Booking — sets adminApproved: true so client page detects it
-  const handleApproveBooking = (id: string) => {
+  // Approve Booking — sets adminApproved: true and broadcasts to cloud so client page detects it
+  const handleApproveBooking = async (id: string) => {
     const updated = bookings.map((b) =>
       b.id === id
         ? { ...b, adminApproved: true, adminApprovedAt: new Date().toISOString(), status: 'confirmed' as const }
@@ -314,6 +368,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     );
     setBookings(updated);
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
+    // Broadcast approval to cloud so client sees it instantly
+    await approveBookingInCloud(id);
   };
 
   // Delete Booking
