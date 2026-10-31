@@ -494,7 +494,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               <input
                 type="password"
                 required
-                placeholder="Enter PIN (Default: 2567)"
+                placeholder="Enter Security PIN"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
