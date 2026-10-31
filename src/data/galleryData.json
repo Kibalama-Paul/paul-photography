@@ -45,7 +45,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731862/IMG_4762_2_yfo5fk.jpg",
     "title": "Portrait",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 112,
@@ -53,7 +53,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4873_qnmjsm.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 111,
@@ -93,7 +93,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299915/BSP_9839_eqsxwu.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 106,
@@ -402,7 +402,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599936/IMG_6014_ndsheh.jpg",
     "title": "Photo Shoot #38",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 39,
@@ -434,7 +434,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599939/IMG_6298_mgowgc.jpg",
     "title": "Photo Shoot #42",
     "category": "studio",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 43,
