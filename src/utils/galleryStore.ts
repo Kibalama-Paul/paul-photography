@@ -64,6 +64,7 @@ export const deduplicateGallery = (): { removedCount: number } => {
 
     const removedCount = Math.max(0, beforeCount - finalCustom.length);
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    broadcastCurrentGallery();
     return { removedCount };
   } catch (e) {
     console.error('Error deduplicating gallery:', e);
@@ -156,8 +157,8 @@ export const addGalleryItem = (newItem: Omit<GalleryItem, 'id'> & { id?: number;
     }
     
     window.dispatchEvent(new Event('paul_gallery_updated'));
-    // Broadcast to cloud for live website sync
-    broadcastGalleryToCloud(updatedCustom).catch(() => {});
+    // Broadcast complete gallery state to cloud for live cross-device sync
+    broadcastCurrentGallery();
   } catch (e) {
     console.error('Error saving gallery item:', e);
   }
@@ -182,19 +183,18 @@ export const updateGalleryItem = (updatedItem: GalleryItem): void => {
     }
 
     if (updatedItem.isFeatured !== undefined) {
-      toggleFeaturedGalleryItem(updatedItem.id, updatedItem.isFeatured);
+      toggleFeaturedGalleryItem(updatedItem.id, updatedItem.isFeatured, false);
     }
 
     window.dispatchEvent(new Event('paul_gallery_updated'));
-    // Broadcast to cloud
-    const allCustom = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    broadcastGalleryToCloud(allCustom).catch(() => {});
+    // Broadcast full gallery state to cloud
+    broadcastCurrentGallery();
   } catch (e) {
     console.error('Error updating gallery item:', e);
   }
 };
 
-export const toggleFeaturedGalleryItem = (id: number, forceState?: boolean): void => {
+export const toggleFeaturedGalleryItem = (id: number, forceState?: boolean, shouldBroadcast = true): void => {
   try {
     const featuredIdsRaw = localStorage.getItem(FEATURED_KEY);
     let featuredIds: number[] = featuredIdsRaw ? JSON.parse(featuredIdsRaw) : [];
@@ -210,6 +210,9 @@ export const toggleFeaturedGalleryItem = (id: number, forceState?: boolean): voi
 
     localStorage.setItem(FEATURED_KEY, JSON.stringify(featuredIds));
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    if (shouldBroadcast) {
+      broadcastCurrentGallery();
+    }
   } catch (e) {
     console.error('Error toggling featured item:', e);
   }
@@ -232,12 +235,11 @@ export const deleteGalleryItem = (id: number): void => {
     }
 
     // Remove from featured if present
-    toggleFeaturedGalleryItem(id, false);
+    toggleFeaturedGalleryItem(id, false, false);
 
     window.dispatchEvent(new Event('paul_gallery_updated'));
-    // Broadcast to cloud
-    const remainingCustom = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    broadcastGalleryToCloud(remainingCustom).catch(() => {});
+    // Broadcast full state to cloud
+    broadcastCurrentGallery();
   } catch (e) {
     console.error('Error deleting gallery item:', e);
   }
@@ -250,6 +252,7 @@ export const resetGallery = (): void => {
     localStorage.removeItem(EDITED_KEY);
     localStorage.removeItem(FEATURED_KEY);
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    broadcastCurrentGallery();
   } catch (e) {
     console.error('Error resetting gallery:', e);
   }
@@ -263,26 +266,67 @@ export const importGalleryItems = (items: GalleryItem[]): void => {
     localStorage.removeItem(EDITED_KEY);
     localStorage.removeItem(FEATURED_KEY);
     window.dispatchEvent(new Event('paul_gallery_updated'));
+    broadcastCurrentGallery();
   } catch (e) {
     console.error('Error importing gallery items:', e);
   }
 };
 
 /**
- * Pull gallery items from cloud and merge with local.
- * Called once on app startup to hydrate visitors on paulphotography256.com.
+ * Broadcast current full gallery state (custom items, deleted IDs, edits, featured status)
+ * to permanent cloud storage so all devices see all changes immediately.
+ */
+export const broadcastCurrentGallery = (): void => {
+  try {
+    const customItems: GalleryItem[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const deletedIds: number[] = JSON.parse(localStorage.getItem(DELETED_KEY) || '[]');
+    const editedItems: Record<number, GalleryItem> = JSON.parse(localStorage.getItem(EDITED_KEY) || '{}');
+    const featuredIds: number[] = JSON.parse(localStorage.getItem(FEATURED_KEY) || '[]');
+
+    broadcastGalleryToCloud({
+      customItems,
+      deletedIds,
+      editedItems,
+      featuredIds,
+    }).catch(() => {});
+  } catch (e) {
+    console.warn('[GalleryStore] Cloud broadcast failed:', e);
+  }
+};
+
+/**
+ * Pull full gallery state from permanent cloud storage and merge into local.
+ * Called on startup and whenever real-time SSE push fires.
  */
 export const syncGalleryFromCloud = async (): Promise<void> => {
   try {
-    const cloudItems = await fetchGalleryFromCloud();
-    if (!cloudItems || cloudItems.length === 0) return;
+    const cloudState = await fetchGalleryFromCloud();
+    if (!cloudState) return;
 
-    const customItemsRaw = localStorage.getItem(STORAGE_KEY);
-    const localCustom: GalleryItem[] = customItemsRaw ? JSON.parse(customItemsRaw) : [];
+    if (Array.isArray(cloudState.customItems)) {
+      const localCustom: GalleryItem[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const mergedCustom = deduplicateItems([...cloudState.customItems, ...localCustom]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedCustom));
+    }
 
-    // Merge: cloud items first, then local items, deduplicated
-    const merged = deduplicateItems([...cloudItems, ...localCustom]);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    if (Array.isArray(cloudState.deletedIds)) {
+      const localDeleted: number[] = JSON.parse(localStorage.getItem(DELETED_KEY) || '[]');
+      const mergedDeleted = [...new Set([...cloudState.deletedIds, ...localDeleted])];
+      localStorage.setItem(DELETED_KEY, JSON.stringify(mergedDeleted));
+    }
+
+    if (cloudState.editedItems && typeof cloudState.editedItems === 'object') {
+      const localEdited = JSON.parse(localStorage.getItem(EDITED_KEY) || '{}');
+      const mergedEdited = { ...localEdited, ...cloudState.editedItems };
+      localStorage.setItem(EDITED_KEY, JSON.stringify(mergedEdited));
+    }
+
+    if (Array.isArray(cloudState.featuredIds)) {
+      const localFeatured: number[] = JSON.parse(localStorage.getItem(FEATURED_KEY) || '[]');
+      const mergedFeatured = [...new Set([...cloudState.featuredIds, ...localFeatured])];
+      localStorage.setItem(FEATURED_KEY, JSON.stringify(mergedFeatured));
+    }
+
     window.dispatchEvent(new Event('paul_gallery_updated'));
   } catch (e) {
     console.error('Error syncing gallery from cloud:', e);

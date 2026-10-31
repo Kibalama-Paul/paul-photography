@@ -41,21 +41,11 @@ export const IntroOverlay: React.FC<IntroOverlayProps> = ({ onComplete }) => {
               className="relative w-36 h-36 md:w-44 md:h-44 flex items-center justify-center mb-6"
             >
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600/30 to-cyan-500/30 blur-xl animate-pulse" />
-              <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-tr from-purple-500 via-pink-500 to-cyan-400 shadow-[0_0_35px_rgba(168,85,247,0.4)]">
-                <div className="w-full h-full rounded-full bg-black/90 flex items-center justify-center p-5">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-full h-full text-cyan-300" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                    <circle cx="12" cy="13" r="3.8" stroke="url(#cameraIntroGrad)" strokeWidth="1.8" />
-                    <circle cx="12" cy="13" r="1.8" fill="url(#cameraIntroGrad)" />
-                    <defs>
-                      <linearGradient id="cameraIntroGrad" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#c084fc" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-              </div>
+              <img
+                src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png"
+                alt="Paul Photography Logo"
+                className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(106,17,203,0.5)]"
+              />
             </motion.div>
 
             <motion.h1

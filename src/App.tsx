@@ -10,7 +10,9 @@ import { BookingPage } from './pages/BookingPage';
 import { ContactPage } from './pages/ContactPage';
 import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { initCloudSync } from './utils/cloudSync';
+import { initCloudSync, subscribeToGalleryUpdates, subscribeToPortfolioUpdates } from './utils/cloudSync';
+import { syncGalleryFromCloud } from './utils/galleryStore';
+import { syncPortfolioFromCloud } from './utils/portfolioMediaStore';
 import { trackPageView } from './utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
@@ -37,11 +39,26 @@ export const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  // ── Cloud Sync Initialization ──────────────────────────────────
-  // Hydrates this device with the latest gallery, portfolio & booking data
-  // from the cloud. Runs once on app startup on every device (phone/PC).
+  // ── Permanent Cross-Device Real-Time Sync Engine ───────────────
+  // Hydrates this device on start + listens for real-time cloud updates
+  // so all updates made in the admin dashboard reflect on all devices & browsers instantly.
   useEffect(() => {
     initCloudSync();
+
+    const unsubGallery = subscribeToGalleryUpdates(() => {
+      console.log('[App] Received real-time gallery cloud update, syncing...');
+      syncGalleryFromCloud();
+    });
+
+    const unsubPortfolio = subscribeToPortfolioUpdates(() => {
+      console.log('[App] Received real-time portfolio cloud update, syncing...');
+      syncPortfolioFromCloud();
+    });
+
+    return () => {
+      unsubGallery();
+      unsubPortfolio();
+    };
   }, []);
 
   // ── Visitor Analytics Tracking ─────────────────────────────────

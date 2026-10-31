@@ -11,7 +11,7 @@ import {
   reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
-import { fetchAllBookings, approveBookingInCloud, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
+import { fetchAllBookings, approveBookingInCloud, deleteBookingFromCloud, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
 import { VisitorRecord, fetchAllVisitors, subscribeToLiveVisitors } from '../utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -418,11 +418,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   };
 
   // Delete Booking
-  const handleDeleteBooking = (id: string) => {
+  const handleDeleteBooking = async (id: string) => {
     if (window.confirm('Delete this booking record?')) {
       const updated = bookings.filter((b) => b.id !== id);
       setBookings(updated);
       localStorage.setItem('paul_bookings', JSON.stringify(updated));
+      await deleteBookingFromCloud(id);
     }
   };
 

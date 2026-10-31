@@ -186,14 +186,17 @@ export const reorderPortfolioMedia = (id: string, direction: 'up' | 'down'): voi
   const updated = [...otherItems, ...sectionItems];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   window.dispatchEvent(new Event(EVENT_NAME));
+  broadcastPortfolioToCloud(updated).catch(() => {});
 };
 
 /**
  * Reset portfolio media to defaults.
  */
 export const resetPortfolioMedia = (): void => {
-  localStorage.removeItem(STORAGE_KEY);
+  const defaults = [...DEFAULT_PORTFOLIO, ...DEFAULT_CEO_REEL];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
   window.dispatchEvent(new Event(EVENT_NAME));
+  broadcastPortfolioToCloud(defaults).catch(() => {});
 };
 
 export const PORTFOLIO_MEDIA_EVENT = EVENT_NAME;
