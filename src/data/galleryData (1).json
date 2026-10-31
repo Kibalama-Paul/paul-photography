@@ -13,7 +13,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731861/IMG_4874_sxogv6.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 116,
@@ -21,7 +21,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731865/IMG_4448_ijflpq.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 115,
@@ -29,7 +29,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731865/IMG_4641_i5in1n.jpg",
     "title": "portrait",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 114,
@@ -45,7 +45,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731862/IMG_4762_2_yfo5fk.jpg",
     "title": "Portrait",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 112,
@@ -53,7 +53,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4873_qnmjsm.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 111,
@@ -93,7 +93,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299915/BSP_9839_eqsxwu.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 106,
@@ -117,31 +117,12 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791299936/BSP_9453_zbk4ug.jpg",
     "title": "Studio Portrait",
     "category": "studio",
-    "isFeatured": true
-  },
-  {
-    "id": 1,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599944/IMG_6569.jpg_b_w_kckmu6.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599957/Kolapostudios_gkfcrd.jpg",
-    "title": "Photo Shoot #1",
-    "category": "monochrome",
-    "isFeatured": false
-  },
-  {
-    "id": 2,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599955/kolapostudios_1_xtd6os.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599956/kolapostudios_2_o01wgj.jpg",
-    "title": "Photo Shoot #2",
-    "category": "studio",
     "isFeatured": false
   },
   {
     "id": 3,
-    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599953/IMG_8568_gqhww8.jpg",
-    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599951/IMG_8252-Recovered_k1syfe.jpg",
-    "title": "Photo Shoot #3",
-    "category": "portrait",
-    "isFeatured": false
+    "title": "Test Edited",
+    "isFeatured": true
   },
   {
     "id": 4,
@@ -149,7 +130,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599964/_MG_0871_etx8hy.jpg",
     "title": "Photo Shoot #4",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 5,
@@ -421,7 +402,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599936/IMG_6014_ndsheh.jpg",
     "title": "Photo Shoot #38",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 39,
@@ -453,7 +434,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599939/IMG_6298_mgowgc.jpg",
     "title": "Photo Shoot #42",
     "category": "studio",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 43,
