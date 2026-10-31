@@ -9,17 +9,76 @@ import {
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML } from '../utils/receiptGenerator';
 
 // ────────────────────────────────────────────────────────────────────
-// Airtel Money Uganda Transaction ID validator
-// Format: MP + 6-digit date (YYMMDD) + . + 4-digit time (HHMM) + . + 3-8 alphanumeric
-// Examples: MP261007.1420.A192  |  MP261008.0915.B34C
+// Airtel Money Uganda Transaction ID validator & SMS Parser
+// Example SMS received from Airtel:
+// "RECEIVED. TID 160252189262. UGX 50,000 from 749770581, RHONITAH KWAGALAKWE. Bal UGX 51,500"
+// Supported TID formats:
+//   - Numeric ID: 160252189262 (typically 10-14 digits)
+//   - Prefixed with TID: TID 160252189262 | TID: 160252189262 | TID. 160252189262
+//   - Full SMS containing TID (e.g. pasted directly by client)
 // ────────────────────────────────────────────────────────────────────
-const AIRTEL_TXN_REGEX = /^MP\d{6}\.\d{4}\.[A-Z0-9]{3,8}$/i;
-
 type TxnValidity = 'idle' | 'valid' | 'invalid';
 
-const validateTxnId = (id: string): TxnValidity => {
-  if (!id.trim()) return 'idle';
-  return AIRTEL_TXN_REGEX.test(id.trim().toUpperCase()) ? 'valid' : 'invalid';
+export interface ParsedAirtelSms {
+  tid?: string;
+  amount?: string;
+  senderPhone?: string;
+  senderName?: string;
+}
+
+export const parseAirtelSms = (text: string): ParsedAirtelSms => {
+  const result: ParsedAirtelSms = {};
+  if (!text) return result;
+
+  // 1. Extract TID (e.g. "TID 160252189262." or "TID: 160252189262")
+  const tidMatch = text.match(/(?:TID|Txn\s*ID|Trans\s*ID|Ref)[\s.:-]+(\d{9,16})/i);
+  if (tidMatch) {
+    result.tid = tidMatch[1];
+  } else {
+    const directMatch = text.trim().replace(/^["']|["']$/g, '').replace(/[.,;:]+$/, '').replace(/\s+/g, '').match(/^(?:TID[:.-]*)?(\d{9,16})$/i);
+    if (directMatch) {
+      result.tid = directMatch[1];
+    }
+  }
+
+  // 2. Extract Amount (e.g. "UGX 50,000" or "UGX 50000")
+  const amountMatch = text.match(/(?:UGX|Shs|Shillings)\s*([\d,]+(?:\.\d+)?)/i);
+  if (amountMatch) {
+    result.amount = amountMatch[1];
+  }
+
+  // 3. Extract Sender Phone & Name (e.g. "from 749770581, RHONITAH KWAGALAKWE" or "from 0749770581, RHONITAH KWAGALAKWE")
+  const fromMatch = text.match(/from\s*(\+?256\d{9}|0\d{9}|\d{9})(?:[,\s]+([^.]+?))?(?:\.|\s*Bal|$)/i);
+  if (fromMatch) {
+    let phone = fromMatch[1].trim();
+    if (phone.length === 9 && !phone.startsWith('0')) {
+      phone = '0' + phone;
+    }
+    result.senderPhone = phone;
+    if (fromMatch[2]) {
+      result.senderName = fromMatch[2].trim();
+    }
+  }
+
+  return result;
+};
+
+export const validateTxnId = (id: string): TxnValidity => {
+  if (!id) return 'idle';
+  const clean = id.trim().replace(/^["']|["']$/g, '').replace(/[.,;:]+$/, '');
+  if (!clean) return 'idle';
+
+  // 1. Direct TID or TID prefixed (e.g. 160252189262 or TID 160252189262)
+  const noSpace = clean.replace(/\s+/g, '');
+  if (/^(?:TID[:.-]*)?(\d{9,16})$/i.test(noSpace)) return 'valid';
+
+  // 2. Contains TID within full SMS text (e.g. "RECEIVED. TID 160252189262...")
+  if (/(?:TID|Txn\s*ID|Trans\s*ID|Ref)[\s.:-]+(\d{9,16})/i.test(clean)) return 'valid';
+
+  // 3. Fallback for legacy format (MP...)
+  if (/^MP\d{6}\.\d{4}\.[A-Z0-9]{3,8}$/i.test(clean)) return 'valid';
+
+  return 'invalid';
 };
 
 // ─── Floating particle for the celebration screen ───────────────────
@@ -70,6 +129,7 @@ export const BookingPage: React.FC = () => {
   // ── Transaction ID validation state ────────────────────────────────
   const [txnValidity, setTxnValidity] = useState<TxnValidity>('idle');
   const [txnTouched, setTxnTouched] = useState(false);
+  const [smsParsedNotice, setSmsParsedNotice] = useState<string | null>(null);
 
   // ── Phase: 'form' | 'pending' | 'approved' ─────────────────────────
   const [phase, setPhase] = useState<'form' | 'pending' | 'approved'>('form');
@@ -89,8 +149,34 @@ export const BookingPage: React.FC = () => {
     "Baby shoot", "Graduation shoot"
   ];
 
-  // ── Validate transaction ID reactively ─────────────────────────────
+  // ── Validate transaction ID reactively & auto-parse full SMS ─────────
   const handleTxnChange = useCallback((val: string) => {
+    // If client pastes the full Airtel confirmation SMS:
+    // e.g. "RECEIVED. TID 160252189262. UGX 50,000 from 749770581, RHONITAH KWAGALAKWE. Bal UGX 51,500"
+    if (/RECEIVED|UGX|Bal\s+UGX|from\s+\d+/i.test(val) || (val.toUpperCase().includes('TID') && val.length > 25)) {
+      const parsed = parseAirtelSms(val);
+      if (parsed.tid) {
+        setFormData(prev => ({
+          ...prev,
+          transactionId: parsed.tid!,
+          amountPaid: prev.amountPaid || parsed.amount || '',
+          senderPhone: prev.senderPhone || parsed.senderPhone || '',
+          name: prev.name || parsed.senderName || ''
+        }));
+        setTxnTouched(true);
+        setTxnValidity('valid');
+        const details = [
+          `TID: ${parsed.tid}`,
+          parsed.amount ? `UGX ${parsed.amount}` : '',
+          parsed.senderPhone ? `Phone: ${parsed.senderPhone}` : '',
+          parsed.senderName ? `From: ${parsed.senderName}` : ''
+        ].filter(Boolean).join(' • ');
+        setSmsParsedNotice(`✨ Airtel SMS detected & auto-filled (${details})`);
+        setTimeout(() => setSmsParsedNotice(null), 7000);
+        return;
+      }
+    }
+
     setFormData(prev => ({ ...prev, transactionId: val }));
     if (txnTouched || val.length > 3) {
       setTxnTouched(true);
@@ -179,7 +265,7 @@ export const BookingPage: React.FC = () => {
       status: 'pending',
       paymentMethod: 'Airtel Money',
       paymentStatus: formData.paymentConfirmed ? 'confirmed' : 'pending',
-      transactionId: formData.transactionId.trim() || undefined,
+      transactionId: formData.transactionId.trim().replace(/^["']|["']$/g, '').replace(/[.,;:]+$/, '') || undefined,
       amountPaid: formData.amountPaid.trim() || undefined,
       senderPhone: formData.senderPhone.trim() || undefined,
       createdAt: new Date().toISOString(),
@@ -387,7 +473,7 @@ export const BookingPage: React.FC = () => {
               <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
                 onClick={() => {
                   setPhase('form'); setPendingBooking(null); setApprovedBooking(null);
-                  setTxnValidity('idle'); setTxnTouched(false);
+                  setTxnValidity('idle'); setTxnTouched(false); setSmsParsedNotice(null);
                   setFormData({ name: '', phone: '', datetime: '', shootType: '', location: '', budget: '', notes: '', paymentConfirmed: true, transactionId: '', amountPaid: '', senderPhone: '' });
                 }}
                 className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer py-1">
@@ -541,8 +627,8 @@ export const BookingPage: React.FC = () => {
                   <span>Confirm recipient displays <strong>Kawulukusi Godfrey</strong></span>
                 </div>
                 <div className="bg-white/5 p-2.5 rounded-lg border border-white/10">
-                  <span className="font-bold text-red-400 block mb-0.5">3. Copy Txn ID</span>
-                  <span>Input the SMS Transaction ID below to confirm</span>
+                  <span className="font-bold text-red-400 block mb-0.5">3. Copy TID</span>
+                  <span>Input the SMS TID (e.g. <strong>160252189262</strong>) or paste the full SMS</span>
                 </div>
               </div>
 
@@ -564,16 +650,38 @@ export const BookingPage: React.FC = () => {
 
                       {/* ── Transaction ID with live validation ── */}
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200 mb-1.5">
-                          Airtel Transaction ID / Ref *
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-200">
+                            Airtel Transaction ID (TID) *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (navigator?.clipboard?.readText) {
+                                navigator.clipboard.readText().then(text => {
+                                  if (text) handleTxnChange(text);
+                                }).catch(() => {
+                                  const text = window.prompt("Paste your Airtel Money confirmation SMS here:");
+                                  if (text) handleTxnChange(text);
+                                });
+                              } else {
+                                const text = window.prompt("Paste your Airtel Money confirmation SMS here:");
+                                if (text) handleTxnChange(text);
+                              }
+                            }}
+                            className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Paste the full SMS from Airtel"
+                          >
+                            <Sparkles className="w-3 h-3" /> Paste Full SMS
+                          </button>
+                        </div>
 
                         {/* Input wrapper */}
                         <div className="relative">
                           <input
                             type="text"
                             required={formData.paymentConfirmed}
-                            placeholder="e.g. MP261007.1420.A192"
+                            placeholder="e.g. 160252189262 or TID 160252189262"
                             value={formData.transactionId}
                             onChange={(e) => handleTxnChange(e.target.value)}
                             onBlur={() => {
@@ -607,6 +715,22 @@ export const BookingPage: React.FC = () => {
                           </div>
                         </div>
 
+                        {/* Auto-filled SMS Notice */}
+                        <AnimatePresence>
+                          {smsParsedNotice && (
+                            <motion.div
+                              key="sms-notice"
+                              initial={{ opacity: 0, y: -4, height: 0 }}
+                              animate={{ opacity: 1, y: 0, height: 'auto' }}
+                              exit={{ opacity: 0, y: -4, height: 0 }}
+                              className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-950/80 border border-teal-500/50 text-xs text-teal-300 font-semibold"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+                              <span>{smsParsedNotice}</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
                         {/* Validation feedback banner */}
                         <AnimatePresence>
                           {txnValidity === 'valid' && (
@@ -616,7 +740,7 @@ export const BookingPage: React.FC = () => {
                               exit={{ opacity: 0, y: -4, height: 0 }}
                               className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-xs text-emerald-300 font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                              <span>✅ Valid Airtel Money Transaction ID detected — your payment is verifiable.</span>
+                              <span>✅ Valid Airtel Money TID detected ({formData.transactionId}) — your payment is verifiable.</span>
                             </motion.div>
                           )}
                           {txnValidity === 'invalid' && (
@@ -629,8 +753,8 @@ export const BookingPage: React.FC = () => {
                               <div>
                                 <p className="text-xs text-red-300 font-bold">Invalid Transaction ID Format</p>
                                 <p className="text-[11px] text-red-400/80 mt-0.5 leading-relaxed">
-                                  Airtel Money IDs follow the format <span className="font-mono text-red-300">MP261007.1420.A192</span>.
-                                  Please copy the exact ID from your Airtel confirmation SMS.
+                                  Airtel Money transaction IDs follow the format <span className="font-mono text-red-300">160252189262</span> or <span className="font-mono text-red-300">TID 160252189262</span>.
+                                  Please copy the exact TID or paste the full SMS message you received from Airtel Money.
                                 </p>
                               </div>
                             </motion.div>
@@ -640,7 +764,7 @@ export const BookingPage: React.FC = () => {
                         {/* Format hint when idle */}
                         {txnValidity === 'idle' && (
                           <p className="text-[10px] text-gray-500 mt-1">
-                            Format: <span className="font-mono text-gray-400">MP</span> + date + <span className="font-mono text-gray-400">.</span> + time + <span className="font-mono text-gray-400">.</span> + code &nbsp;•&nbsp; Copied from your Airtel SMS
+                            Format: <span className="font-mono text-gray-400">160252189262</span> or <span className="font-mono text-gray-400">TID 160252189262</span> &nbsp;•&nbsp; Copied from your Airtel SMS (or paste the entire SMS)
                           </p>
                         )}
                       </div>
@@ -689,7 +813,7 @@ export const BookingPage: React.FC = () => {
                   exit={{ opacity: 0, y: -6 }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-950/60 border border-red-500/50 text-xs text-red-300">
                   <ShieldX className="w-4 h-4 shrink-0 text-red-400" />
-                  <span><strong>Submission blocked.</strong> Please enter a valid Airtel Money Transaction ID from your SMS before proceeding.</span>
+                  <span><strong>Submission blocked.</strong> Please enter a valid Airtel Money Transaction ID (TID) from your SMS before proceeding.</span>
                 </motion.div>
               )}
             </AnimatePresence>

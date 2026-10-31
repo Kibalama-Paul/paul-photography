@@ -1291,7 +1291,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               {/* Transaction ID */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-300 mb-1.5">Transaction ID / Reference</label>
-                <input type="text" placeholder="e.g. MP261007.1420.A192" 
+                <input type="text" placeholder="e.g. 160252189262 or TID 160252189262" 
                   value={rb.transactionId || ''} onChange={e => setRb({ ...rb, transactionId: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-black/40 border border-white/20 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-400 font-mono" />
               </div>
