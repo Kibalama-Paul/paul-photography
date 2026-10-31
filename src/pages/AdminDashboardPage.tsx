@@ -12,6 +12,7 @@ import {
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
 import { fetchAllBookings, approveBookingInCloud, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
+import { VisitorRecord, fetchAllVisitors, subscribeToLiveVisitors } from '../utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, KeyRound, Upload, Image as ImageIcon, Trash2, CheckCircle2,
@@ -19,7 +20,8 @@ import {
   Phone, Calendar, MapPin, Clock, MessageSquare, ExternalLink,
   Settings, FileJson, Pencil, Star, X, Check, BadgeCheck, Hourglass,
   FileText, Printer, FileDown, Receipt, Sparkles, Film, Video,
-  ArrowUp, ArrowDown, Play
+  ArrowUp, ArrowDown, Play, Users, Globe, Smartphone, Monitor, Tablet as TabletIcon,
+  Search, Activity, Radio
 } from 'lucide-react';
 
 interface AdminDashboardPageProps {
@@ -41,7 +43,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [newPin, setNewPin] = useState('');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'receipts' | 'portfolio-media' | 'settings'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'bookings' | 'receipts' | 'portfolio-media' | 'visitors' | 'settings'>('upload');
+
+  // Visitor Analytics state
+  const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
+  const [visitorFilter, setVisitorFilter] = useState<'all' | 'Mobile' | 'Desktop' | 'Tablet'>('all');
+  const [visitorSearch, setVisitorSearch] = useState('');
+  const [recentLivePing, setRecentLivePing] = useState<VisitorRecord | null>(null);
+  const [isLoadingVisitors, setIsLoadingVisitors] = useState(false);
+  const [isUploadingCloud, setIsUploadingCloud] = useState<'front' | 'back' | 'media' | null>(null);
 
   // Portfolio Media state
   const [portfolioMediaItems, setPortfolioMediaItems] = useState<PortfolioMediaItem[]>(() => getPortfolioMedia());
@@ -118,10 +128,37 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const handleMediaUpdate = () => setPortfolioMediaItems(getPortfolioMedia());
     window.addEventListener('paul_gallery_updated', handleGalleryUpdate);
     window.addEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
+
+    // Fetch visitor records from cloud and local cache
+    fetchAllVisitors().then((data) => setVisitors(data)).catch(() => {});
+
+    // Live Visitor real-time SSE listener
+    const unsubVisitors = subscribeToLiveVisitors((newVis) => {
+      setVisitors((prev) => {
+        if (prev.some((v) => v.id === newVis.id)) return prev;
+        return [newVis, ...prev].slice(0, 300);
+      });
+      setRecentLivePing(newVis);
+      setTimeout(() => setRecentLivePing(null), 6000);
+    });
+
+    const handleLocalVisitor = (e: Event) => {
+      const customEvent = e as CustomEvent<VisitorRecord>;
+      if (customEvent.detail) {
+        setVisitors((prev) => {
+          if (prev.some((v) => v.id === customEvent.detail.id)) return prev;
+          return [customEvent.detail, ...prev].slice(0, 300);
+        });
+      }
+    };
+    window.addEventListener('paul_visitor_logged', handleLocalVisitor);
+
     return () => {
       clearInterval(bookingPoll);
+      unsubVisitors();
       window.removeEventListener('paul_gallery_updated', handleGalleryUpdate);
       window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
+      window.removeEventListener('paul_visitor_logged', handleLocalVisitor);
     };
   }, []);
 
@@ -154,7 +191,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Image Upload File Handler — uploads to Cloudinary for cross-device sync, falls back to Data URL
+  // Image Upload File Handler — uploads to Cloud CDN for cross-device sync, falls back to Data URL
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: 'front' | 'back',
@@ -172,7 +209,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     };
     reader.readAsDataURL(file);
 
-    // Upload to Cloudinary for a permanent URL
+    setIsUploadingCloud(target);
+
+    // Upload to Cloud CDN for a permanent URL that syncs across all devices
     try {
       const cloudUrl = await uploadToCloudinary(file, 'gallery');
       if (isEditMode && editingItem) {
@@ -191,7 +230,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         }
       }
     } catch {
-      // Fallback to data URL if Cloudinary fails
+      // Fallback to data URL if cloud upload fails
       const fallbackReader = new FileReader();
       fallbackReader.onload = (event) => {
         const result = event.target?.result as string;
@@ -212,16 +251,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         }
       };
       fallbackReader.readAsDataURL(file);
+    } finally {
+      setIsUploadingCloud(null);
     }
   };
 
-  // Portfolio Media file handler — uploads to Cloudinary for permanent URL
+  // Portfolio Media file handler — uploads to Cloud CDN for permanent URL
   const handleMediaFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const isVideo = file.type.startsWith('video/');
     const folder = isVideo ? 'portfolio-videos' : 'portfolio';
+
+    setIsUploadingCloud('media');
 
     try {
       const cloudUrl = await uploadToCloudinary(file, folder);
@@ -242,6 +285,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         }
       };
       reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingCloud(null);
     }
   };
 
@@ -477,6 +522,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     );
   }
 
+  // Filtered visitor records for Analytics tab
+  const filteredVisitors = visitors.filter((v) => {
+    if (visitorFilter !== 'all' && v.device !== visitorFilter) return false;
+    if (visitorSearch.trim()) {
+      const q = visitorSearch.toLowerCase();
+      const match =
+        (v.ip || '').toLowerCase().includes(q) ||
+        (v.country || '').toLowerCase().includes(q) ||
+        (v.city || '').toLowerCase().includes(q) ||
+        (v.page || '').toLowerCase().includes(q) ||
+        (v.device || '').toLowerCase().includes(q) ||
+        (v.browser || '').toLowerCase().includes(q) ||
+        (v.referrer || '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    return true;
+  });
+
   // ----------------------------------------------------
   // AUTHENTICATED DASHBOARD
   // ----------------------------------------------------
@@ -569,6 +632,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         </button>
 
         <button
+          onClick={() => setActiveTab('visitors')}
+          className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all relative ${activeTab === 'visitors'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
+              : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+            }`}
+        >
+          <Users className="w-4 h-4 text-emerald-400" />
+          <span>Live Visitors ({visitors.length})</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all ${activeTab === 'settings'
               ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-lg'
@@ -579,6 +654,38 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           <span>Security & Backup</span>
         </button>
       </div>
+
+      {/* Live Visitor Alert Banner */}
+      <AnimatePresence>
+        {recentLivePing && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-neutral-900 to-emerald-950/80 border border-emerald-500/40 shadow-xl shadow-emerald-950/40 flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <Radio className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                  <span>{recentLivePing.flag} Live Visitor on {recentLivePing.page} Page</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Just Now</span>
+                </p>
+                <p className="text-[11px] text-gray-300">
+                  {recentLivePing.city}, {recentLivePing.country} • {recentLivePing.device} ({recentLivePing.browser} on {recentLivePing.os}) • IP: {recentLivePing.ip} • Via: {recentLivePing.referrer}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('visitors')}
+              className="text-xs px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all shrink-0 cursor-pointer shadow-md shadow-emerald-900/30"
+            >
+              View Analytics
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ---------------------------------------------------- */}
       {/* TAB 1: UPLOAD & ADD IMAGE */}
@@ -650,7 +757,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   Front Image (Primary Photo) *
                 </label>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <label className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer transition-all flex items-center gap-2">
                       <Upload className="w-4 h-4" />
                       <span>Choose File from Computer</span>
@@ -661,7 +768,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         className="hidden"
                       />
                     </label>
-                    <span className="text-xs text-gray-400">or enter image URL directly:</span>
+                    {isUploadingCloud === 'front' ? (
+                      <span className="text-xs text-cyan-300 flex items-center gap-1.5 font-medium animate-pulse">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                        Uploading to Cloud CDN (Immediate Cross-Device Sync)...
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">or enter image URL directly:</span>
+                    )}
                   </div>
                   <input
                     type="url"
@@ -682,7 +796,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   Back Image (Optional 3D Flip Perspective)
                 </label>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <label className="px-4 py-2.5 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-bold cursor-pointer transition-all flex items-center gap-2">
                       <Upload className="w-4 h-4" />
                       <span>Choose Back File</span>
@@ -693,7 +807,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         className="hidden"
                       />
                     </label>
-                    <span className="text-xs text-gray-400">or URL:</span>
+                    {isUploadingCloud === 'back' ? (
+                      <span className="text-xs text-cyan-300 flex items-center gap-1.5 font-medium animate-pulse">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                        Uploading to Cloud CDN (Immediate Cross-Device Sync)...
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">or URL:</span>
+                    )}
                   </div>
                   <input
                     type="url"
@@ -1930,6 +2051,362 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 Update Security PIN
               </button>
             </form>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB: VISITOR ANALYTICS & LIVE TRAFFIC */}
+      {/* ---------------------------------------------------- */}
+      {activeTab === 'visitors' && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+          {/* Top Bar with Live Indicator & Refresh */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 glass-panel-light rounded-3xl border border-white/20 shadow-xl">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Users className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Live Visitor Analytics</h2>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Real-Time Cloud Radar</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-300">
+                Track everyone who visits paulphotography256.com on mobile and desktop worldwide with IP, device, and page analytics.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  setIsLoadingVisitors(true);
+                  const data = await fetchAllVisitors();
+                  setVisitors(data);
+                  setIsLoadingVisitors(false);
+                }}
+                disabled={isLoadingVisitors}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all border border-white/10 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingVisitors ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>{isLoadingVisitors ? 'Syncing...' : 'Refresh Cloud'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (confirm('Clear all visitor history from this device?')) {
+                    localStorage.removeItem('paul_website_visitors');
+                    setVisitors([]);
+                  }
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-semibold transition-all cursor-pointer"
+                title="Clear local visitor history"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 4 Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="glass-panel-light p-5 rounded-2xl border border-white/10 relative overflow-hidden">
+              <div className="flex items-center justify-between text-gray-400 text-xs uppercase tracking-wider mb-2">
+                <span>Total Page Views</span>
+                <Eye className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-white">
+                {visitors.length}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-1">Logged across all pages</div>
+            </div>
+
+            <div className="glass-panel-light p-5 rounded-2xl border border-white/10 relative overflow-hidden">
+              <div className="flex items-center justify-between text-gray-400 text-xs uppercase tracking-wider mb-2">
+                <span>Unique Visitors</span>
+                <Users className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-white">
+                {new Set(visitors.map((v) => v.visitorId || v.ip)).size}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-1">Unique client devices</div>
+            </div>
+
+            <div className="glass-panel-light p-5 rounded-2xl border border-white/10 relative overflow-hidden">
+              <div className="flex items-center justify-between text-gray-400 text-xs uppercase tracking-wider mb-2">
+                <span>Today's Visits</span>
+                <Clock className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-white">
+                {visitors.filter((v) => v.timestamp?.startsWith(new Date().toISOString().slice(0, 10))).length}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-1">Last 24 hours</div>
+            </div>
+
+            <div className="glass-panel-light p-5 rounded-2xl border border-white/10 relative overflow-hidden">
+              <div className="flex items-center justify-between text-gray-400 text-xs uppercase tracking-wider mb-2">
+                <span>Mobile Traffic</span>
+                <Smartphone className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-white">
+                {visitors.length > 0
+                  ? `${Math.round((visitors.filter((v) => v.device === 'Mobile').length / visitors.length) * 100)}%`
+                  : '0%'}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-1">
+                {visitors.filter((v) => v.device === 'Mobile').length} Mobile • {visitors.filter((v) => v.device === 'Desktop').length} PC
+              </div>
+            </div>
+          </div>
+
+          {/* Breakdown Charts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Device Breakdown */}
+            <div className="glass-panel-light p-6 rounded-3xl border border-white/10">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-cyan-400" />
+                <span>Devices Used</span>
+              </h3>
+              <div className="space-y-3.5">
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="flex items-center gap-1.5 text-gray-200">
+                      <Smartphone className="w-3.5 h-3.5 text-purple-400" /> Mobile Phones
+                    </span>
+                    <span className="text-cyan-300">
+                      {visitors.filter((v) => v.device === 'Mobile').length} ({visitors.length > 0 ? Math.round((visitors.filter((v) => v.device === 'Mobile').length / visitors.length) * 100) : 0}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"
+                      style={{ width: `${visitors.length > 0 ? (visitors.filter((v) => v.device === 'Mobile').length / visitors.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="flex items-center gap-1.5 text-gray-200">
+                      <Monitor className="w-3.5 h-3.5 text-cyan-400" /> Computers & Laptops
+                    </span>
+                    <span className="text-cyan-300">
+                      {visitors.filter((v) => v.device === 'Desktop').length} ({visitors.length > 0 ? Math.round((visitors.filter((v) => v.device === 'Desktop').length / visitors.length) * 100) : 0}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-teal-400 rounded-full"
+                      style={{ width: `${visitors.length > 0 ? (visitors.filter((v) => v.device === 'Desktop').length / visitors.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="flex items-center gap-1.5 text-gray-200">
+                      <TabletIcon className="w-3.5 h-3.5 text-emerald-400" /> Tablets & iPads
+                    </span>
+                    <span className="text-cyan-300">
+                      {visitors.filter((v) => v.device === 'Tablet').length} ({visitors.length > 0 ? Math.round((visitors.filter((v) => v.device === 'Tablet').length / visitors.length) * 100) : 0}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full"
+                      style={{ width: `${visitors.length > 0 ? (visitors.filter((v) => v.device === 'Tablet').length / visitors.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Popular Pages */}
+            <div className="glass-panel-light p-6 rounded-3xl border border-white/10">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span>Most Visited Pages</span>
+              </h3>
+              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                {(() => {
+                  const counts: Record<string, number> = {};
+                  visitors.forEach((v) => { counts[v.page || 'Home'] = (counts[v.page || 'Home'] || 0) + 1; });
+                  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                  if (sorted.length === 0) return <p className="text-xs text-gray-500">No visits logged yet</p>;
+                  return sorted.map(([page, cnt]) => (
+                    <div key={page} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 text-xs">
+                      <span className="font-semibold text-gray-200 capitalize">{page}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold">{cnt} visits</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            {/* Top Locations */}
+            <div className="glass-panel-light p-6 rounded-3xl border border-white/10">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-purple-400" />
+                <span>Top Visitor Locations</span>
+              </h3>
+              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                {(() => {
+                  const locMap: Record<string, { count: number; flag: string }> = {};
+                  visitors.forEach((v) => {
+                    const loc = `${v.city ? v.city + ', ' : ''}${v.country || 'Uganda'}`;
+                    if (!locMap[loc]) locMap[loc] = { count: 0, flag: v.flag || '🇺🇬' };
+                    locMap[loc].count += 1;
+                  });
+                  const sorted = Object.entries(locMap).sort((a, b) => b[1].count - a[1].count);
+                  if (sorted.length === 0) return <p className="text-xs text-gray-500">No locations logged yet</p>;
+                  return sorted.map(([loc, item]) => (
+                    <div key={loc} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 text-xs">
+                      <span className="flex items-center gap-1.5 font-medium text-gray-200 truncate">
+                        <span>{item.flag}</span>
+                        <span className="truncate">{loc}</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold shrink-0">{item.count}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Visitor Log Table */}
+          <div className="glass-panel-light rounded-3xl border border-white/20 p-6 sm:p-8 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-cyan-400" />
+                  <span>Real-Time Visitor Log</span>
+                </h3>
+                <p className="text-xs text-gray-300">
+                  Detailed timeline of visitors browsing your website right now.
+                </p>
+              </div>
+
+              {/* Filter controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by city, IP, page..."
+                    value={visitorSearch}
+                    onChange={(e) => setVisitorSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-neutral-900 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400 w-48 sm:w-56"
+                  />
+                </div>
+
+                <select
+                  value={visitorFilter}
+                  onChange={(e) => setVisitorFilter(e.target.value as any)}
+                  className="px-3 py-1.5 bg-neutral-900 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="all">All Devices</option>
+                  <option value="Mobile">Mobile Only</option>
+                  <option value="Desktop">Desktop Only</option>
+                  <option value="Tablet">Tablet Only</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Visitor Table */}
+            <div className="overflow-x-auto rounded-2xl border border-white/10">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white/5 border-b border-white/10 text-[11px] font-semibold text-gray-300 uppercase tracking-wider">
+                    <th className="py-3 px-4">Time</th>
+                    <th className="py-3 px-4">Location & IP</th>
+                    <th className="py-3 px-4">Page Viewed</th>
+                    <th className="py-3 px-4">Device & OS</th>
+                    <th className="py-3 px-4">Browser & Screen</th>
+                    <th className="py-3 px-4">Source / Referrer</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-xs text-gray-200">
+                  {filteredVisitors.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-gray-400">
+                        <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                        <p className="font-semibold text-sm">No visitor records matching criteria</p>
+                        <p className="text-xs text-gray-500 mt-1">Open another browser or visit paulphotography256.com on your phone to see yourself live!</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredVisitors.slice(0, 50).map((v) => {
+                      const timeStr = (() => {
+                        try {
+                          const d = new Date(v.timestamp);
+                          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' (' + d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ')';
+                        } catch {
+                          return v.timestamp;
+                        }
+                      })();
+
+                      return (
+                        <tr key={v.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="font-mono text-cyan-300 text-[11px] block">{timeStr}</span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{v.flag || '🌐'}</span>
+                              <div>
+                                <span className="font-semibold text-white block">{v.city || 'Kampala'}, {v.country || 'Uganda'}</span>
+                                <span className="font-mono text-[10px] text-gray-400">{v.ip}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                              v.page === 'booking'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : v.page === 'portfolio'
+                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                  : v.page === 'gallery'
+                                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                    : 'bg-white/10 text-gray-200 border border-white/10'
+                            }`}>
+                              {v.page}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {v.device === 'Mobile' ? (
+                                <Smartphone className="w-3.5 h-3.5 text-purple-400" />
+                              ) : v.device === 'Desktop' ? (
+                                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+                              ) : (
+                                <TabletIcon className="w-3.5 h-3.5 text-emerald-400" />
+                              )}
+                              <span className="font-medium">{v.device}</span>
+                              <span className="text-gray-400 text-[11px]">({v.os})</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="text-gray-300">{v.browser}</span>
+                            <span className="text-gray-500 text-[10px] ml-1.5 font-mono">[{v.screen}]</span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="text-xs px-2 py-0.5 rounded-lg bg-neutral-900 border border-white/10 text-gray-300">
+                              {v.referrer || 'Direct'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredVisitors.length > 50 && (
+              <p className="text-center text-xs text-gray-500 mt-4">
+                Showing newest 50 of {filteredVisitors.length} logged visits
+              </p>
+            )}
           </div>
         </motion.div>
       )}

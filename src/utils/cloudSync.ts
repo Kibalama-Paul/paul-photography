@@ -42,30 +42,73 @@ export const getCloudinaryPreset = (): string =>
 export const setCloudinaryPreset = (preset: string): void =>
   localStorage.setItem(CLOUDINARY_PRESET_STORAGE_KEY, preset.trim());
 
-// ── Cloudinary Direct Upload ────────────────────────────────────────
+// ── Cloudinary & FreeImage Multi-CDN Direct Upload ───────────────────
 
 /**
- * Upload a file directly to Cloudinary CDN.
- * Returns the permanent secure_url that works on all devices.
+ * Upload image to FreeImage CDN (permanent free CDN, public key).
+ * Returns https://iili.io/... permanent URL accessible on all devices.
+ */
+async function uploadToFreeImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+  formData.append('action', 'upload');
+  formData.append('source', file);
+  formData.append('format', 'json');
+
+  const res = await fetch('https://freeimage.host/api/1/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (data?.image?.url) return data.image.url;
+  if (data?.image?.display_url) return data.image.display_url;
+  throw new Error(data?.error?.message || 'FreeImage host upload failed');
+}
+
+/**
+ * Upload a file directly to Cloud CDN.
+ * Tries Cloudinary first, then automatically falls back to FreeImage CDN.
+ * Returns the permanent HTTPS URL that works on ALL devices instantly.
  */
 export async function uploadToCloudinary(
   file: File,
   folder?: string
 ): Promise<string> {
-  const preset = getCloudinaryPreset();
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', preset);
-  if (folder) formData.append('folder', `paul-photography/${folder}`);
+  // 1. Try Cloudinary
+  try {
+    const preset = getCloudinaryPreset();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', preset);
+    if (folder) formData.append('folder', `paul-photography/${folder}`);
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-    { method: 'POST', body: formData }
-  );
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+      { method: 'POST', body: formData }
+    );
 
-  const data = await res.json();
-  if (res.ok && data.secure_url) return data.secure_url;
-  throw new Error(data.error?.message || 'Cloudinary upload failed');
+    const data = await res.json();
+    if (res.ok && data.secure_url) {
+      console.log('[CloudSync] Uploaded to Cloudinary:', data.secure_url);
+      return data.secure_url;
+    }
+  } catch (e) {
+    console.warn('[CloudSync] Cloudinary upload attempted, switching to CDN mirror:', e);
+  }
+
+  // 2. Resilient permanent CDN mirror (FreeImage)
+  try {
+    const freeImageUrl = await uploadToFreeImage(file);
+    if (freeImageUrl) {
+      console.log('[CloudSync] Uploaded to CDN mirror:', freeImageUrl);
+      return freeImageUrl;
+    }
+  } catch (err) {
+    console.warn('[CloudSync] CDN mirror upload failed:', err);
+  }
+
+  throw new Error('Image upload failed on all cloud providers. Please verify connection.');
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -92,6 +135,7 @@ async function broadcastToTopic(topic: string, data: unknown, title: string): Pr
 /**
  * Fetch the latest cached message from a topic.
  * Returns the parsed data from the most recent message, or null.
+ * Seamlessly handles payloads converted to attachments (>4KB).
  */
 async function fetchLatestFromTopic<T>(topic: string): Promise<T | null> {
   try {
@@ -101,11 +145,18 @@ async function fetchLatestFromTopic<T>(topic: string): Promise<T | null> {
     const lines = text.trim().split('\n').filter(Boolean);
     if (lines.length === 0) return null;
 
-    // Get the LATEST message (last line)
-    const lastLine = lines[lines.length - 1];
-    const envelope = JSON.parse(lastLine);
-    if (envelope.message) {
-      return JSON.parse(envelope.message) as T;
+    // Search backwards from the latest message
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const envelope = JSON.parse(lines[i]);
+        if (envelope.attachment?.url) {
+          const attRes = await fetch(envelope.attachment.url);
+          if (attRes.ok) return (await attRes.json()) as T;
+        }
+        if (envelope.message) {
+          return JSON.parse(envelope.message) as T;
+        }
+      } catch {}
     }
     return null;
   } catch {

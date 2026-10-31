@@ -62,12 +62,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => handleNavClick('home')}
           className="flex items-center gap-3 group text-left focus:outline-none cursor-pointer"
         >
-          <div className="relative w-10 h-10 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-purple-600 to-cyan-400 group-hover:scale-105 transition-transform duration-300">
-            <img
-              src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png"
-              alt="Paul Photography"
-              className="w-full h-full object-contain rounded-full bg-black/80"
-            />
+          <div className="relative w-10 h-10 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-purple-600 via-indigo-500 to-cyan-400 group-hover:scale-105 transition-transform duration-300 shadow-lg shadow-purple-900/30">
+            <div className="w-full h-full rounded-full bg-black/90 flex items-center justify-center p-2">
+              <svg viewBox="0 0 24 24" fill="none" className="w-full h-full text-cyan-300" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3.5" />
+                <circle cx="12" cy="13" r="1.5" fill="currentColor" fillOpacity="0.4" />
+              </svg>
+            </div>
           </div>
           <div>
             <span className={`text-base font-bold tracking-wider transition-colors ${isLight ? 'text-gray-900 group-hover:text-purple-700' : 'text-white group-hover:text-cyan-300'}`}>

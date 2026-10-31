@@ -11,6 +11,7 @@ import { ContactPage } from './pages/ContactPage';
 import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { initCloudSync } from './utils/cloudSync';
+import { trackPageView } from './utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 
@@ -42,6 +43,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     initCloudSync();
   }, []);
+
+  // ── Visitor Analytics Tracking ─────────────────────────────────
+  // Automatically logs device, location & page view to admin dashboard
+  useEffect(() => {
+    trackPageView(currentPage);
+  }, [currentPage]);
 
   // Sync with URL hash if provided
   useEffect(() => {
