@@ -11,7 +11,7 @@ import {
   reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
-import { fetchAllBookings, approveBookingInCloud, deleteBookingFromCloud, subscribeToBookingsUpdates, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
+import { fetchAllBookings, approveBookingInCloud, updateBookingStatusInCloud, deleteBookingFromCloud, subscribeToBookingsUpdates, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
 import { VisitorRecord, fetchAllVisitors, subscribeToLiveVisitors } from '../utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -96,6 +96,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     extraItems: []
   });
   const [rbSuccess, setRbSuccess] = useState(false);
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
 
   const resetRb = () => setRb({
     receiptNo: `RCP-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -414,17 +415,31 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Approve Booking — sets adminApproved: true and broadcasts to cloud so client page detects it
-  const handleApproveBooking = async (id: string) => {
+  // Update Booking Status (Pending, Confirmed, Completed, Cancelled)
+  const handleUpdateBookingStatus = async (
+    id: string,
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  ) => {
+    const isApproved = status === 'confirmed' || status === 'completed';
+    const timestamp = new Date().toISOString();
     const updated = bookings.map((b) =>
       b.id === id
-        ? { ...b, adminApproved: true, adminApprovedAt: new Date().toISOString(), status: 'confirmed' as const }
+        ? {
+            ...b,
+            status,
+            adminApproved: isApproved,
+            adminApprovedAt: isApproved ? (b.adminApprovedAt || timestamp) : undefined,
+          }
         : b
     );
     setBookings(updated);
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
-    // Broadcast approval to cloud so client sees it instantly
-    await approveBookingInCloud(id);
+    await updateBookingStatusInCloud(id, status);
+  };
+
+  // Approve Booking — sets adminApproved: true and broadcasts to cloud so client page detects it
+  const handleApproveBooking = async (id: string) => {
+    await handleUpdateBookingStatus(id, 'confirmed');
   };
 
   // Delete Booking
@@ -491,7 +506,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               alt="Paul Photography"
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+                (e.currentTarget as HTMLImageElement).src = 'https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png';
               }}
             />
           </div>
@@ -573,7 +588,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               alt="Paul Photography"
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+                (e.currentTarget as HTMLImageElement).src = 'https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png';
               }}
             />
           </div>
@@ -1234,194 +1249,309 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ---------------------------------------------------- */}
       {/* TAB 3: BOOKINGS MANAGER */}
       {/* ---------------------------------------------------- */}
-      {activeTab === 'bookings' && (
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 glass-panel p-5 rounded-2xl border border-white/10">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  Live Multi-IP Cloud Sync Active
-                </span>
-                {lastBookingsSync && (
-                  <span className="text-[10px] text-gray-400 font-mono">
-                    (Updated {lastBookingsSync})
+      {activeTab === 'bookings' && (() => {
+        const pendingCount = bookings.filter(b => b.status === 'pending' || (!b.adminApproved && !b.status)).length;
+        const confirmedCount = bookings.filter(b => b.status === 'confirmed').length;
+        const completedCount = bookings.filter(b => b.status === 'completed').length;
+        const cancelledCount = bookings.filter(b => b.status === 'cancelled').length;
+
+        const filteredBookings = bookings.filter((b) => {
+          if (bookingStatusFilter === 'all') return true;
+          if (bookingStatusFilter === 'pending') return b.status === 'pending' || (!b.adminApproved && !b.status);
+          return b.status === bookingStatusFilter;
+        });
+
+        return (
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl border border-white/10">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    Live Multi-IP Cloud Sync Active
                   </span>
-                )}
+                  {lastBookingsSync && (
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      (Updated {lastBookingsSync})
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span>Client Booking Submissions ({bookings.length})</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-normal">
+                    {confirmedCount} Confirmed • {pendingCount} Pending • {completedCount} Completed
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-400">
+                  All client bookings across Chrome, Safari, Firefox, Edge, iPhone, and Android are saved and synchronized in real-time.
+                </p>
               </div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <span>Client Booking Submissions ({bookings.length})</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-normal">
-                  {bookings.filter(b => b.adminApproved).length} Confirmed • {bookings.filter(b => !b.adminApproved).length} Pending
-                </span>
-              </h2>
-              <p className="text-xs text-gray-400">
-                All bookings made on any browser or IP address are synced here in real-time. Any logged-in admin can confirm reservations.
-              </p>
+
+              <button
+                onClick={async () => {
+                  setIsRefreshingBookings(true);
+                  try {
+                    const merged = await fetchAllBookings();
+                    setBookings(merged);
+                    setLastBookingsSync(new Date().toLocaleTimeString());
+                  } finally {
+                    setIsRefreshingBookings(false);
+                  }
+                }}
+                disabled={isRefreshingBookings}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border border-white/15 hover:border-cyan-400 disabled:opacity-50"
+                title="Force check all servers and cloud storage for new bookings"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isRefreshingBookings ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingBookings ? 'Syncing...' : 'Refresh Bookings'}</span>
+              </button>
             </div>
 
-            <button
-              onClick={async () => {
-                setIsRefreshingBookings(true);
-                try {
-                  const merged = await fetchAllBookings();
-                  setBookings(merged);
-                  setLastBookingsSync(new Date().toLocaleTimeString());
-                } finally {
-                  setIsRefreshingBookings(false);
-                }
-              }}
-              disabled={isRefreshingBookings}
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border border-white/15 hover:border-cyan-400 disabled:opacity-50"
-              title="Force check all servers and cloud storage for new bookings"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isRefreshingBookings ? 'animate-spin' : ''}`} />
-              <span>{isRefreshingBookings ? 'Syncing...' : 'Refresh Bookings'}</span>
-            </button>
-          </div>
-
-          {bookings.length === 0 ? (
-            <div className="glass-panel p-12 rounded-3xl text-center text-gray-400 border border-white/10">
-              <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-500 stroke-1" />
-              <p className="text-base font-semibold text-white">No Bookings Recorded Yet</p>
-              <p className="text-xs text-gray-400 mt-1">Bookings submitted by clients on the website will populate here automatically.</p>
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setBookingStatusFilter('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  bookingStatusFilter === 'all'
+                    ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-950/40'
+                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                All Bookings ({bookings.length})
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('pending')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  bookingStatusFilter === 'pending'
+                    ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-950/40'
+                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                Pending ({pendingCount})
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('confirmed')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  bookingStatusFilter === 'confirmed'
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40'
+                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                Confirmed ({confirmedCount})
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('completed')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  bookingStatusFilter === 'completed'
+                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-950/40'
+                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                Completed ({completedCount})
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('cancelled')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  bookingStatusFilter === 'cancelled'
+                    ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950/40'
+                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                Cancelled ({cancelledCount})
+              </button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {bookings.map((b) => (
-                <div
-                  key={b.id}
-                  className="glass-panel p-5 rounded-2xl border border-white/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1 text-xs text-gray-300">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-500/30">
-                        {b.id}
-                      </span>
-                      <span className="text-base font-bold text-white">{b.name}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950 text-cyan-300 border border-cyan-500/30 uppercase">
-                        {b.shootType}
-                      </span>
-                      {b.paymentStatus === 'confirmed' ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/80 text-red-300 border border-red-500/40 uppercase">
-                          Airtel Paid {b.amountPaid ? `• UGX ${b.amountPaid}` : ''}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-gray-400 border border-white/10 uppercase">
-                          Payment Pending
-                        </span>
-                      )}
-                      {/* Approval status badge */}
-                      {b.adminApproved ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 uppercase flex items-center gap-1">
-                          <BadgeCheck className="w-3 h-3" /> Approved
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1">
-                          <Hourglass className="w-3 h-3" /> Awaiting Approval
-                        </span>
-                      )}
-                    </div>
 
-                    {b.transactionId && (
-                      <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                        <span className="font-semibold text-red-400">Airtel Txn Ref:</span>
-                        <span className="font-mono bg-black/60 px-2 py-0.5 rounded border border-white/15 text-white">
-                          {b.transactionId}
+            {filteredBookings.length === 0 ? (
+              <div className="glass-panel p-12 rounded-3xl text-center text-gray-400 border border-white/10">
+                <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-500 stroke-1" />
+                <p className="text-base font-semibold text-white">No Bookings In This Category</p>
+                <p className="text-xs text-gray-400 mt-1">Select another filter tab or wait for new client reservations.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredBookings.map((b) => (
+                  <div
+                    key={b.id}
+                    className="glass-panel p-5 rounded-2xl border border-white/15 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 text-xs text-gray-300 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                          {b.id}
                         </span>
-                        {b.senderPhone && (
-                          <span className="text-gray-400">
-                            (Sender: <strong className="text-gray-200">{b.senderPhone}</strong>)
+                        <span className="text-base font-bold text-white">{b.name}</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950 text-cyan-300 border border-cyan-500/30 uppercase">
+                          {b.shootType}
+                        </span>
+
+                        {b.budget && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950/70 text-purple-300 border border-purple-500/30">
+                            Budget: {b.budget}
+                          </span>
+                        )}
+
+                        {b.paymentStatus === 'confirmed' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/80 text-red-300 border border-red-500/40 uppercase">
+                            Airtel Paid {b.amountPaid ? `• UGX ${b.amountPaid}` : ''}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-gray-400 border border-white/10 uppercase">
+                            Payment Pending
+                          </span>
+                        )}
+
+                        {/* Status Badge */}
+                        {b.status === 'completed' ? (
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 uppercase flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-cyan-400" /> Completed
+                          </span>
+                        ) : b.status === 'cancelled' ? (
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-950/80 text-red-300 border border-red-500/40 uppercase flex items-center gap-1">
+                            <X className="w-3 h-3 text-red-400" /> Cancelled
+                          </span>
+                        ) : b.status === 'confirmed' || b.adminApproved ? (
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 uppercase flex items-center gap-1">
+                            <BadgeCheck className="w-3 h-3 text-emerald-400" /> Confirmed
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1">
+                            <Hourglass className="w-3 h-3 text-amber-400" /> Awaiting Approval
                           </span>
                         )}
                       </div>
-                    )}
 
-                    <div className="flex flex-wrap gap-4 pt-1 text-gray-300">
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <strong className="text-white">{b.phone || 'N/A'}</strong>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>{b.datetime?.replace('T', ' at ')}</span>
-                      </span>
-                      {b.location && (
+                      {b.transactionId && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="font-semibold text-red-400">Airtel Txn Ref:</span>
+                          <span className="font-mono bg-black/60 px-2 py-0.5 rounded border border-white/15 text-white">
+                            {b.transactionId}
+                          </span>
+                          {b.senderPhone && (
+                            <span className="text-gray-400">
+                              (Sender: <strong className="text-gray-200">{b.senderPhone}</strong>)
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-4 text-gray-300">
                         <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-red-400" />
-                          <span>{b.location}</span>
+                          <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                          <strong className="text-white">{b.phone || 'N/A'}</strong>
                         </span>
+                        {b.email && (
+                          <span className="flex items-center gap-1 text-gray-400">
+                            <span>{b.email}</span>
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>{b.datetime?.replace('T', ' at ')}</span>
+                        </span>
+                        {b.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-red-400" />
+                            <span>{b.location}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {b.notes && (
+                        <div className="text-xs text-gray-300 bg-white/5 p-2 rounded-lg border border-white/10 mt-1">
+                          <span className="text-gray-400 font-semibold">Notes: </span>
+                          {b.notes}
+                        </div>
                       )}
                     </div>
 
-                    {b.notes && (
-                      <div className="text-xs text-gray-300 bg-white/5 p-2 rounded-lg border border-white/10 mt-2">
-                        <span className="text-gray-400 font-semibold">Notes: </span>
-                        {b.notes}
-                      </div>
-                    )}
-                  </div>
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                      {/* Status quick actions */}
+                      {b.status !== 'confirmed' && (
+                        <button
+                          onClick={() => handleUpdateBookingStatus(b.id, 'confirmed')}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                          title="Confirm and approve booking"
+                        >
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          <span>Confirm</span>
+                        </button>
+                      )}
 
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    {/* Approve / Confirm button — can be confirmed by whoever logs in as an admin */}
-                    {!b.adminApproved ? (
+                      {b.status !== 'completed' && (
+                        <button
+                          onClick={() => handleUpdateBookingStatus(b.id, 'completed')}
+                          className="px-3 py-1.5 rounded-xl bg-cyan-600/80 hover:bg-cyan-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                          title="Mark photoshoot as completed"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Complete</span>
+                        </button>
+                      )}
+
+                      {b.status !== 'cancelled' ? (
+                        <button
+                          onClick={() => handleUpdateBookingStatus(b.id, 'cancelled')}
+                          className="px-2.5 py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                          title="Cancel this booking"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Cancel</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleUpdateBookingStatus(b.id, 'pending')}
+                          className="px-2.5 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                          title="Restore to pending"
+                        >
+                          <Hourglass className="w-3 h-3" />
+                          <span>Restore</span>
+                        </button>
+                      )}
+
+                      {/* Receipt buttons */}
                       <button
-                        onClick={() => handleApproveBooking(b.id)}
-                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-emerald-900/40 hover:scale-105 active:scale-95"
-                        title="Confirm and approve this booking — updates across all admin screens and notifies client"
+                        onClick={() => printReceipt(bookingToReceiptData(b))}
+                        className="px-3 py-1.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                        title="Open printable receipt with official logo & signature"
                       >
-                        <BadgeCheck className="w-4 h-4" />
-                        <span>Confirm Booking</span>
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print</span>
                       </button>
-                    ) : (
-                      <span className="px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                        <BadgeCheck className="w-4 h-4 text-emerald-400" />
-                        <span>Confirmed by Admin</span>
-                      </span>
-                    )}
 
-                    {/* Receipt buttons */}
-                    <button
-                      onClick={() => printReceipt(bookingToReceiptData(b))}
-                      className="px-3 py-1.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                      title="Open printable receipt"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Print</span>
-                    </button>
+                      <button
+                        onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                        title="Download receipt as HTML file"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        <span>Receipt</span>
+                      </button>
 
-                    <button
-                      onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
-                      className="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                      title="Download receipt as HTML file"
-                    >
-                      <FileDown className="w-3.5 h-3.5" />
-                      <span>Receipt</span>
-                    </button>
+                      <a
+                        href={`https://wa.me/${(b.phone || '256757460297').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${b.name}, this is Kibalama Paul regarding your photoshoot booking ref ${b.id}.`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
 
-                    <a
-                      href={`https://wa.me/${(b.phone || '256757460297').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${b.name}, this is Kibalama Paul regarding your photoshoot booking ref ${b.id}.`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </a>
-
-                    <button
-                      onClick={() => handleDeleteBooking(b.id)}
-                      className="p-2 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-200 transition-all cursor-pointer"
-                      title="Delete booking record"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <button
+                        onClick={() => handleDeleteBooking(b.id)}
+                        className="p-2 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-200 transition-all cursor-pointer"
+                        title="Delete booking record"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        );
+      })()}
       )}
 
       {/* ---------------------------------------------------- */}

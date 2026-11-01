@@ -1,5 +1,25 @@
 [
   {
+    "id": "BK-2376",
+    "name": "Paul Kibalama",
+    "email": "",
+    "phone": "0757473648",
+    "datetime": "2026-11-01T13:40",
+    "shootType": "Reels",
+    "location": "kampala",
+    "budget": "200000",
+    "notes": "full",
+    "status": "confirmed",
+    "paymentMethod": "Airtel Money",
+    "paymentStatus": "confirmed",
+    "transactionId": "160252189262",
+    "amountPaid": "50,000",
+    "senderPhone": "0749770581",
+    "createdAt": "2026-11-01T10:42:22.893Z",
+    "adminApproved": true,
+    "adminApprovedAt": "2026-11-01T10:54:26.023659Z"
+  },
+  {
     "id": "BK-2188",
     "name": "kalette dan",
     "phone": "0757460297",
@@ -8,12 +28,13 @@
     "location": "Not specified",
     "budget": "UGX 50,000",
     "notes": "Booked via Paul Photography Portal",
-    "status": "pending",
+    "status": "confirmed",
     "paymentMethod": "Airtel Money",
     "paymentStatus": "confirmed",
     "transactionId": "160252189262",
     "amountPaid": "50,000",
     "createdAt": "2026-11-01T08:35:00.000Z",
-    "adminApproved": false
+    "adminApproved": true,
+    "adminApprovedAt": "2026-11-01T10:54:23.802408Z"
   }
 ]

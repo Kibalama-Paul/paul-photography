@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               alt="Paul Photography"
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+                (e.currentTarget as HTMLImageElement).src = 'https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png';
               }}
             />
           </div>

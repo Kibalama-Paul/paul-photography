@@ -221,6 +221,17 @@ export const BIN_PORTFOLIO = 'dcbbbdf';
 export const BIN_BOOKINGS = 'daaceac';
 
 async function writeCloudBin(binId: string, data: unknown): Promise<boolean> {
+  // 1. Try server-side proxy (/api/cloud-sync?bin=...) which bypasses browser CORS preflight
+  try {
+    const res = await fetch(`/api/cloud-sync?bin=${binId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) return true;
+  } catch (_) {}
+
+  // 2. Direct PUT to ExtendsClass
   try {
     const res = await fetch(`${CLOUD_STORAGE_BASE}/${binId}`, {
       method: 'PUT',
@@ -235,17 +246,28 @@ async function writeCloudBin(binId: string, data: unknown): Promise<boolean> {
 }
 
 async function readCloudBin<T>(binId: string): Promise<T | null> {
+  // 1. Direct GET (simple request, zero preflight, Access-Control-Allow-Origin: *)
   try {
     const res = await fetch(`${CLOUD_STORAGE_BASE}/${binId}?_t=${Date.now()}`, {
       cache: 'no-store',
     });
-    if (!res.ok) return null;
-    const text = await res.text();
-    return JSON.parse(text) as T;
-  } catch (e) {
-    console.warn(`[CloudSync] Read error for bin ${binId}:`, e);
-    return null;
-  }
+    if (res.ok) {
+      const text = await res.text();
+      return JSON.parse(text) as T;
+    }
+  } catch (_) {}
+
+  // 2. Fallback via /api/cloud-sync
+  try {
+    const res = await fetch(`/api/cloud-sync?bin=${binId}`, {
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      return (await res.json()) as T;
+    }
+  } catch (_) {}
+
+  return null;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -616,60 +638,77 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
 }
 
 /**
- * Admin approves / confirms a booking.
- * Syncs confirmation to Cloud DB, local server API, permanent cloud bin, and broadcasts to all clients & admins.
+ * Update booking status across all cloud and local sources (pending, confirmed, completed, cancelled).
  */
-export async function approveBookingInCloud(id: string): Promise<boolean> {
+export async function updateBookingStatusInCloud(
+  id: string,
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+): Promise<boolean> {
   const timestamp = new Date().toISOString();
+  const isApproved = status === 'confirmed' || status === 'completed';
 
   // 1. Local update
   try {
     const raw = localStorage.getItem('paul_bookings') || '[]';
     const list: BookingSubmission[] = JSON.parse(raw);
     const updated = list.map((b) =>
-      b.id === id ? { ...b, adminApproved: true, adminApprovedAt: timestamp, status: 'confirmed' as const } : b
+      b.id === id
+        ? {
+            ...b,
+            status,
+            adminApproved: isApproved,
+            adminApprovedAt: isApproved ? (b.adminApprovedAt || timestamp) : undefined,
+          }
+        : b
     );
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
   } catch {}
 
-  // 2. Permanent Cloud DB update
+  // 2. Server API update (/api/bookings PUT)
   try {
-    const currentList = await fetchCloudDbBookings();
-    if (currentList.length > 0) {
-      const updated = currentList.map((b) =>
-        b.id === id ? { ...b, adminApproved: true, adminApprovedAt: timestamp, status: 'confirmed' as const } : b
-      );
-      await writeCloudDbBookings(updated);
-    }
-  } catch (e) {
-    console.warn('[CloudSync] Cloud DB approval write error:', e);
-  }
+    await fetch(`/api/bookings?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
+    });
+  } catch {}
 
-  // 3. Server API update
-  approveLocalApiBooking(id).catch(() => {});
-
-  // 4. Permanent cloud bin update
+  // 3. Permanent cloud bin update
   try {
     const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
     if (cloud?.bookings) {
       const updated = cloud.bookings.map((b) =>
-        b.id === id ? { ...b, adminApproved: true, adminApprovedAt: timestamp, status: 'confirmed' as const } : b
+        b.id === id
+          ? {
+              ...b,
+              status,
+              adminApproved: isApproved,
+              adminApprovedAt: isApproved ? (b.adminApprovedAt || timestamp) : undefined,
+            }
+          : b
       );
       await writeCloudBin(BIN_BOOKINGS, { bookings: updated, updatedAt: timestamp });
     }
   } catch {}
 
-  // 5. Broadcast approval notification
+  // 4. Real-time broadcast
   try {
     await fetch(`${NTFY_BASE}/${SYNC_TOPIC_APPROVALS}`, {
       method: 'POST',
-      body: JSON.stringify({ id, adminApproved: true, adminApprovedAt: timestamp }),
-      headers: { 'Title': 'Booking Approved', 'Tags': 'white_check_mark', 'Cache': 'yes' },
+      body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
+      headers: { 'Title': `Booking Status: ${status.toUpperCase()}`, 'Tags': 'white_check_mark', 'Cache': 'yes' },
     });
-    return true;
-  } catch {
-    return false;
-  }
+  } catch {}
+
+  return true;
+}
+
+/**
+ * Admin approves / confirms a booking.
+ * Syncs confirmation to Cloud DB, local server API, permanent cloud bin, and broadcasts to all clients & admins.
+ */
+export async function approveBookingInCloud(id: string): Promise<boolean> {
+  return updateBookingStatusInCloud(id, 'confirmed');
 }
 
 /**

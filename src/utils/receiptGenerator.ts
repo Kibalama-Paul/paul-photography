@@ -145,7 +145,7 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
   <div class="hdr">
     <div class="brand">
       <div class="brand-logo-wrap">
-        <img src="https://iili.io/nUknM0J.png" alt="Paul Photography Logo" class="brand-logo" />
+        <img src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png" alt="Paul Photography Logo" class="brand-logo" />
       </div>
       <div>
         <div class="brand-name">Paul Photography</div>
@@ -256,10 +256,10 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
   <div class="ftr">
     <div>
       <div class="ftr-brand">
-        <img src="https://iili.io/nUknM0J.png" alt="Logo" style="width:16px;height:16px;object-fit:contain;border-radius:4px" />
+        <img src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png" alt="Logo" style="width:16px;height:16px;object-fit:contain;border-radius:4px" />
         <span>Paul Photography</span>
       </div>
-      <div class="ftr-contact">+256 757 460 297 &nbsp;•&nbsp; Kampala, Uganda</div>
+      <div class="ftr-contact">+256 757 460 297 &nbsp;•&nbsp; paulphotography256@gmail.com &nbsp;•&nbsp; Kampala, Uganda</div>
     </div>
     <div class="ftr-note">
       Official payment receipt.<br>

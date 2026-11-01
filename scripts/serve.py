@@ -63,6 +63,33 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(payload)
             return
 
+        # API: Cloud Sync proxy (GET)
+        if req_path == '/api/cloud-sync':
+            import urllib.request, urllib.parse
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            bin_id = params.get('bin', [None])[0]
+            if bin_id:
+                try:
+                    req = urllib.request.Request(f'https://extendsclass.com/api/json-storage/bin/{bin_id}?_t={int(datetime.utcnow().timestamp()*1000)}')
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        data = resp.read()
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json; charset=utf-8')
+                        self._set_cors_headers()
+                        self.send_header('Content-Length', str(len(data)))
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+                except Exception as e:
+                    err = json.dumps({'error': str(e)}).encode('utf-8')
+                    self.send_response(502)
+                    self.send_header('Content-Type', 'application/json')
+                    self._set_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(err)
+                    return
+
         # SPA & Static file serving
         local_path = os.path.join(DIST_DIR, req_path.lstrip('/'))
         if os.path.exists(local_path) and not os.path.isdir(local_path):
@@ -137,6 +164,38 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(res)
                 return
+
+        if req_path == '/api/cloud-sync':
+            import urllib.request, urllib.parse
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            bin_id = params.get('bin', [None])[0]
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            if bin_id:
+                try:
+                    req = urllib.request.Request(
+                        f'https://extendsclass.com/api/json-storage/bin/{bin_id}',
+                        data=body,
+                        headers={'Content-Type': 'application/json'},
+                        method='PUT'
+                    )
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        res = json.dumps({'success': True, 'bin': bin_id}).encode('utf-8')
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json')
+                        self._set_cors_headers()
+                        self.end_headers()
+                        self.wfile.write(res)
+                        return
+                except Exception as e:
+                    err = json.dumps({'error': str(e)}).encode('utf-8')
+                    self.send_response(502)
+                    self.send_header('Content-Type', 'application/json')
+                    self._set_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(err)
+                    return
 
         self.send_response(404)
         self._set_cors_headers()

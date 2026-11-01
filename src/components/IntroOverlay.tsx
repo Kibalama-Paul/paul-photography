@@ -46,7 +46,7 @@ export const IntroOverlay: React.FC<IntroOverlayProps> = ({ onComplete }) => {
                 alt="Paul Photography Logo"
                 className="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(234,179,8,0.55)]"
                 onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+                  (e.currentTarget as HTMLImageElement).src = 'https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png';
                 }}
               />
             </motion.div>

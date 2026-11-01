@@ -88,14 +88,14 @@ export const ContactPage: React.FC = () => {
 
             {/* Email */}
             <a
-              href="mailto:kibalamapaul70@gmail.com"
+              href="mailto:paulphotography256@gmail.com"
               className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 transition-all text-center flex flex-col items-center group cursor-pointer"
             >
               <div className="w-12 h-12 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                 <Mail className="w-5 h-5" />
               </div>
               <span className="text-xs uppercase font-bold text-gray-300">Email Us</span>
-              <span className="text-xs font-bold text-white mt-1 break-all">kibalamapaul70@gmail.com</span>
+              <span className="text-xs font-bold text-white mt-1 break-all">paulphotography256@gmail.com</span>
               <span className="text-[10px] text-purple-300 mt-0.5">Direct inbox</span>
             </a>
 

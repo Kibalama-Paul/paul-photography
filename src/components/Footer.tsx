@@ -21,11 +21,11 @@ export const Footer: React.FC<FooterProps> = () => {
               <span>+256 757460297</span>
             </a>
             <a
-              href="mailto:kibalamapaul70@gmail.com"
+              href="mailto:paulphotography256@gmail.com"
               className="flex items-center gap-2 hover:text-white transition-colors"
             >
               <Mail className="w-4 h-4 text-purple-400" />
-              <span>kibalamapaul70@gmail.com</span>
+              <span>paulphotography256@gmail.com</span>
             </a>
             <a
               href="https://wa.me/256757460297"

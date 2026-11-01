@@ -236,8 +236,9 @@ export const BookingPage: React.FC = () => {
   };
 
   // ── Submit ──────────────────────────────────────────────────────────
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     // Block if transaction ID is entered but invalid
     if (formData.paymentConfirmed && formData.transactionId.trim()) {
