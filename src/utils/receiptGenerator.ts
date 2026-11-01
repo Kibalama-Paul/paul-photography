@@ -115,9 +115,11 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
   .notes-txt{font-size:11.5px;color:#78350f;line-height:1.5}
   /* signatures */
   .sigs{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:22px;padding-top:16px;border-top:1.5px dashed #e5e7eb}
-  .sig-box{text-align:center}
-  .sig-line{border-top:1.5px solid #d1d5db;padding-top:22px;margin-bottom:4px}
-  .sig-lbl{font-size:9px;color:#9ca3af;font-weight:600}
+  .sig-box{text-align:center;position:relative}
+  .sig-space{height:46px;display:flex;align-items:flex-end;justify-content:center}
+  .sig-img{max-height:50px;max-width:140px;object-fit:contain}
+  .sig-line{border-top:1.5px solid #d1d5db;margin-top:4px;padding-top:6px;margin-bottom:2px}
+  .sig-lbl{font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:1px}
   .sig-name{font-size:11.5px;color:#374151;font-weight:700;margin-top:2px}
   /* footer */
   .ftr{background:#f9fafb;border-top:1px solid #f0f0f0;padding:12px 32px;display:flex;justify-content:space-between;align-items:center}
@@ -143,7 +145,7 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
   <div class="hdr">
     <div class="brand">
       <div class="brand-logo-wrap">
-        <img src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png" alt="Paul Photography Logo" class="brand-logo" />
+        <img src="https://iili.io/nUknM0J.png" alt="Paul Photography Logo" class="brand-logo" />
       </div>
       <div>
         <div class="brand-name">Paul Photography</div>
@@ -234,11 +236,15 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
     <!-- Signatures -->
     <div class="sigs">
       <div class="sig-box">
+        <div class="sig-space"></div>
         <div class="sig-line"></div>
         <div class="sig-lbl">Client Signature</div>
         <div class="sig-name">${data.clientName}</div>
       </div>
       <div class="sig-box">
+        <div class="sig-space">
+          <img src="https://iili.io/nUkrIg2.png" alt="Authorized Signature" class="sig-img" />
+        </div>
         <div class="sig-line"></div>
         <div class="sig-lbl">Authorized By</div>
         <div class="sig-name">Kibalama Paul — CEO</div>
@@ -250,7 +256,7 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
   <div class="ftr">
     <div>
       <div class="ftr-brand">
-        <img src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png" alt="Logo" style="width:16px;height:16px;object-fit:contain;border-radius:4px" />
+        <img src="https://iili.io/nUknM0J.png" alt="Logo" style="width:16px;height:16px;object-fit:contain;border-radius:4px" />
         <span>Paul Photography</span>
       </div>
       <div class="ftr-contact">+256 757 460 297 &nbsp;•&nbsp; Kampala, Uganda</div>

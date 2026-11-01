@@ -269,15 +269,17 @@ export const BookingPage: React.FC = () => {
       adminApproved: false
     };
 
-    // Save locally and broadcast to cloud so Admin receives it across all devices
-    saveBookingToCloud(newBooking);
+    // Save locally, to server API and broadcast to cloud so all admins see it on all IP addresses
+    try {
+      await saveBookingToCloud(newBooking);
+    } catch (err) {
+      console.warn('[BookingPage] Cloud save error:', err);
+    }
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setPendingBooking(newBooking);
-      setPhase('pending');
-      openWhatsApp(newBooking);
-    }, 600);
+    setIsSubmitting(false);
+    setPendingBooking(newBooking);
+    setPhase('pending');
+    openWhatsApp(newBooking);
   };
 
   // ── Particle config ─────────────────────────────────────────────────

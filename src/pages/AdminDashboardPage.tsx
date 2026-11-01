@@ -11,7 +11,7 @@ import {
   reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
-import { fetchAllBookings, approveBookingInCloud, deleteBookingFromCloud, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
+import { fetchAllBookings, approveBookingInCloud, deleteBookingFromCloud, subscribeToBookingsUpdates, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
 import { VisitorRecord, fetchAllVisitors, subscribeToLiveVisitors } from '../utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -85,6 +85,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
   // Bookings state
   const [bookings, setBookings] = useState<BookingSubmission[]>([]);
+  const [isRefreshingBookings, setIsRefreshingBookings] = useState(false);
+  const [lastBookingsSync, setLastBookingsSync] = useState<string>('');
 
   // ── Receipt Builder state ──────────────────────────────────────────
   const [rb, setRb] = useState<ReceiptData>({
@@ -108,9 +110,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   useEffect(() => {
     const loadBookings = async () => {
       try {
-        // Fetch from both localStorage and cloud, merge results
+        // Fetch from local server API, cloud bin, and ntfy cache (merges all sources)
         const merged = await fetchAllBookings();
         setBookings(merged);
+        setLastBookingsSync(new Date().toLocaleTimeString());
       } catch (e) {
         console.error('Error loading bookings:', e);
         // Fallback to local only
@@ -122,8 +125,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     };
 
     loadBookings();
-    // Re-fetch bookings every 10 seconds to catch cloud updates
-    const bookingPoll = setInterval(loadBookings, 10000);
+    // Continuous poll every 5s so all admins on any IP address or browser see updates
+    const bookingPoll = setInterval(loadBookings, 5000);
+
+    // Instant SSE real-time listener: triggers whenever a client or admin books/approves on any device/IP
+    const unsubBookings = subscribeToBookingsUpdates(() => {
+      loadBookings();
+    });
+
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
     const handleMediaUpdate = () => setPortfolioMediaItems(getPortfolioMedia());
     window.addEventListener('paul_gallery_updated', handleGalleryUpdate);
@@ -155,6 +164,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
     return () => {
       clearInterval(bookingPoll);
+      unsubBookings();
       unsubVisitors();
       window.removeEventListener('paul_gallery_updated', handleGalleryUpdate);
       window.removeEventListener(PORTFOLIO_MEDIA_EVENT, handleMediaUpdate);
@@ -474,11 +484,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           animate={{ opacity: 1, y: 0, scale: 1 }}
           className="glass-panel-light max-w-md w-full rounded-3xl p-8 shadow-2xl text-center border border-white/20 relative"
         >
-          <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-400/40 text-purple-300 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8" />
+          {/* Official Paul Photography Logo */}
+          <div className="w-20 h-20 rounded-2xl bg-black/60 border border-amber-500/40 p-2 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-950/40">
+            <img
+              src="/logo.png"
+              alt="Paul Photography"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+              }}
+            />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-400/30 text-xs font-semibold text-purple-300 uppercase tracking-widest mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-400/30 text-xs font-semibold text-amber-300 uppercase tracking-widest mb-2">
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Developer Restricted Area</span>
           </div>
@@ -548,12 +566,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     <div className="min-h-screen pt-10 sm:pt-12 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Top Header Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 glass-panel-light p-6 rounded-3xl border border-white/20">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-xs font-semibold text-emerald-300 uppercase tracking-widest mb-1">
-            <span>Developer Mode Active</span>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-black/60 border border-amber-500/40 p-1.5 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/30">
+            <img
+              src="/logo.png"
+              alt="Paul Photography"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+              }}
+            />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Paul Photography Dashboard</h1>
-          <p className="text-xs text-gray-300">Upload photos, edit existing pictures, pick homepage featured cards, and manage client bookings.</p>
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-xs font-semibold text-emerald-300 uppercase tracking-widest mb-1">
+              <span>Developer Mode Active</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white">Paul Photography Dashboard</h1>
+            <p className="text-xs text-gray-300">Upload photos, edit existing pictures, pick homepage featured cards, and manage client bookings.</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1206,11 +1236,48 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ---------------------------------------------------- */}
       {activeTab === 'bookings' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 glass-panel p-5 rounded-2xl border border-white/10">
             <div>
-              <h2 className="text-xl font-bold text-white">Client Booking Submissions ({bookings.length})</h2>
-              <p className="text-xs text-gray-400">All photoshoot bookings submitted directly through the reservation portal.</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  Live Multi-IP Cloud Sync Active
+                </span>
+                {lastBookingsSync && (
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    (Updated {lastBookingsSync})
+                  </span>
+                )}
+              </div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <span>Client Booking Submissions ({bookings.length})</span>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-normal">
+                  {bookings.filter(b => b.adminApproved).length} Confirmed • {bookings.filter(b => !b.adminApproved).length} Pending
+                </span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                All bookings made on any browser or IP address are synced here in real-time. Any logged-in admin can confirm reservations.
+              </p>
             </div>
+
+            <button
+              onClick={async () => {
+                setIsRefreshingBookings(true);
+                try {
+                  const merged = await fetchAllBookings();
+                  setBookings(merged);
+                  setLastBookingsSync(new Date().toLocaleTimeString());
+                } finally {
+                  setIsRefreshingBookings(false);
+                }
+              }}
+              disabled={isRefreshingBookings}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border border-white/15 hover:border-cyan-400 disabled:opacity-50"
+              title="Force check all servers and cloud storage for new bookings"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isRefreshingBookings ? 'animate-spin' : ''}`} />
+              <span>{isRefreshingBookings ? 'Syncing...' : 'Refresh Bookings'}</span>
+            </button>
           </div>
 
           {bookings.length === 0 ? (
@@ -1296,16 +1363,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    {/* Approve button — triggers client-side success screen */}
-                    {!b.adminApproved && (
+                    {/* Approve / Confirm button — can be confirmed by whoever logs in as an admin */}
+                    {!b.adminApproved ? (
                       <button
                         onClick={() => handleApproveBooking(b.id)}
-                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-emerald-900/30 hover:scale-105"
-                        title="Approve this booking — client will see success screen"
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-lg shadow-emerald-900/40 hover:scale-105 active:scale-95"
+                        title="Confirm and approve this booking — updates across all admin screens and notifies client"
                       >
-                        <BadgeCheck className="w-3.5 h-3.5" />
-                        <span>Approve Booking</span>
+                        <BadgeCheck className="w-4 h-4" />
+                        <span>Confirm Booking</span>
                       </button>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <BadgeCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Confirmed by Admin</span>
+                      </span>
                     )}
 
                     {/* Receipt buttons */}
@@ -2026,7 +2098,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               <div>
                 <label className="block text-xs font-semibold uppercase text-gray-200 mb-2">Current PIN</label>
                 <input
-                  type="text"
+                  type="password"
                   disabled
                   value={storedPin}
                   className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-sm text-gray-400"

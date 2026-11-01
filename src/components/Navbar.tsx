@@ -62,11 +62,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => handleNavClick('home')}
           className="flex items-center gap-3 group text-left focus:outline-none cursor-pointer"
         >
-          <div className="relative w-10 h-10 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-purple-600 to-cyan-400 group-hover:scale-105 transition-transform duration-300">
+          <div className="relative h-11 w-11 rounded-xl overflow-hidden p-1 bg-black/60 border border-amber-500/30 group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300 shadow-md shadow-amber-950/20">
             <img
-              src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png"
+              src="/logo.png"
               alt="Paul Photography"
-              className="w-full h-full object-contain rounded-full bg-black/80"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+              }}
             />
           </div>
           <div>

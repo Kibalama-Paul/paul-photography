@@ -40,11 +40,14 @@ export const IntroOverlay: React.FC<IntroOverlayProps> = ({ onComplete }) => {
               transition={{ duration: 1.8, ease: [0.34, 1.56, 0.64, 1] }}
               className="relative w-36 h-36 md:w-44 md:h-44 flex items-center justify-center mb-6"
             >
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600/30 to-cyan-500/30 blur-xl animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/30 via-yellow-500/20 to-amber-600/30 blur-2xl animate-pulse" />
               <img
-                src="https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599973/Group_1_tppp56.png"
+                src="/logo.png"
                 alt="Paul Photography Logo"
-                className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(106,17,203,0.5)]"
+                className="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(234,179,8,0.55)]"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = 'https://iili.io/nUknM0J.png';
+                }}
               />
             </motion.div>
 
