@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { getGalleryItems } from '../utils/galleryStore';
 import { GalleryItem } from '../types';
-import { subscribeToGalleryUpdates, fetchGalleryFromCloud } from '../utils/cloudSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ZoomIn, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 
@@ -18,33 +17,6 @@ export const GalleryPage: React.FC = () => {
     const handleUpdate = () => setItems(getGalleryItems());
     window.addEventListener('paul_gallery_updated', handleUpdate);
     return () => window.removeEventListener('paul_gallery_updated', handleUpdate);
-  }, []);
-
-  // ── Real-time cross-device sync ──────────────────────────────────
-  // Listens for SSE push notifications from ntfy.sh.
-  // When admin uploads on ANY device, this fires and re-fetches from cloud.
-  useEffect(() => {
-    const handleCloudUpdate = async () => {
-      try {
-        const cloudState = await fetchGalleryFromCloud();
-        const cloudItems = cloudState?.customItems ?? [];
-        if (cloudItems.length > 0) {
-          // Merge cloud data into localStorage so getGalleryItems() picks it up
-          const localRaw = localStorage.getItem('paul_custom_gallery') || '[]';
-          const local: GalleryItem[] = JSON.parse(localRaw);
-          const byId = new Map<number, GalleryItem>();
-          for (const item of cloudItems) byId.set(item.id, item);
-          for (const item of local) { if (!byId.has(item.id)) byId.set(item.id, item); }
-          localStorage.setItem('paul_custom_gallery', JSON.stringify(Array.from(byId.values())));
-          setItems(getGalleryItems());
-        }
-      } catch {
-        // Silent fail — next notification will retry
-      }
-    };
-
-    const unsubscribe = subscribeToGalleryUpdates(handleCloudUpdate);
-    return unsubscribe;
   }, []);
 
 

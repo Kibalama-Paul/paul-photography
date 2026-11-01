@@ -15,7 +15,7 @@ function httpRequest(url, options = {}, data = null) {
       path: parsed.pathname + parsed.search,
       method: options.method || 'GET',
       headers: options.headers || {},
-      timeout: 8000,
+      timeout: 2500,
     };
 
     const req = https.request(reqOptions, (res) => {

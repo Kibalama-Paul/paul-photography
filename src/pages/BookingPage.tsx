@@ -267,20 +267,21 @@ export const BookingPage: React.FC = () => {
       amountPaid: formData.amountPaid.trim() || undefined,
       senderPhone: formData.senderPhone.trim() || undefined,
       createdAt: new Date().toISOString(),
-      adminApproved: false
+      adminApproved: false,
     };
 
-    // Save locally, to server API and broadcast to cloud so all admins see it on all IP addresses
-    try {
-      await saveBookingToCloud(newBooking);
-    } catch (err) {
-      console.warn('[BookingPage] Cloud save error:', err);
-    }
+    // 1. Immediately open CEO WhatsApp without delay (synchronous with click event to avoid popup blocker)
+    openWhatsApp(newBooking);
 
-    setIsSubmitting(false);
+    // 2. Immediately transition UI to pending state with the booking reference
     setPendingBooking(newBooking);
     setPhase('pending');
-    openWhatsApp(newBooking);
+    setIsSubmitting(false);
+
+    // 3. Save locally, to server API and broadcast to cloud in the background
+    saveBookingToCloud(newBooking).catch((err) => {
+      console.warn('[BookingPage] Cloud save error:', err);
+    });
   };
 
   // ── Particle config ─────────────────────────────────────────────────

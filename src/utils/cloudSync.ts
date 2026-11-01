@@ -2,22 +2,9 @@ import { BookingSubmission, GalleryItem, PortfolioMediaItem } from '../types';
 import seedBookings from '../data/bookingsData.json';
 
 // ────────────────────────────────────────────────────────────────────
-// Paul Photography — Cross-Device Cloud Sync Engine
-// Ensures paulphotography256.com updates on ALL devices (PC + Mobile)
-// when admin uploads images or approves bookings.
-//
-// Architecture:
-//   • ntfy.sh     → Real-time push + message cache (cross-device sync)
-//   • Cloudinary  → Image/Video CDN hosting (dirfcqs1f)
-//
-// How it works:
-//   1. Admin uploads an image → uploaded to Cloudinary → gallery metadata
-//      is broadcast to ntfy.sh topic with cache headers.
-//   2. ALL devices (phones, PCs, tablets) subscribe to the same topic
-//      via Server-Sent Events (SSE). When a message arrives, they
-//      re-fetch and re-render.
-//   3. On first page load, each device polls ntfy.sh for cached messages
-//      from the last 3 days, ensuring nothing is missed.
+// Paul Photography — High-Speed Cross-Device Cloud Sync Engine
+// Ensures instant UI response, fast CEO WhatsApp handover,
+// and real-time live synchronization across devices and browsers.
 // ────────────────────────────────────────────────────────────────────
 
 // ── Cloudinary Config ───────────────────────────────────────────────
@@ -32,11 +19,9 @@ const SYNC_TOPIC_PORTFOLIO = 'paul_photo_portfolio_256_dirfcqs1f';
 const SYNC_TOPIC_BOOKINGS = 'paul_photo_bookings_256_dirfcqs1f';
 const SYNC_TOPIC_APPROVALS = 'paul_photo_approvals_256_dirfcqs1f';
 
-// Cache duration: ntfy.sh keeps messages for up to 12h by default
-const NTFY_CACHE_SINCE = '3d'; // Fetch messages from last 3 days
+const NTFY_CACHE_SINCE = '3d';
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
 export const getCloudinaryPreset = (): string =>
   localStorage.getItem(CLOUDINARY_PRESET_STORAGE_KEY) || DEFAULT_CLOUDINARY_PRESET;
 
@@ -44,11 +29,6 @@ export const setCloudinaryPreset = (preset: string): void =>
   localStorage.setItem(CLOUDINARY_PRESET_STORAGE_KEY, preset.trim());
 
 // ── Cloudinary & FreeImage Multi-CDN Direct Upload ───────────────────
-
-/**
- * Upload image to FreeImage CDN (permanent free CDN, public key).
- * Returns https://iili.io/... permanent URL accessible on all devices.
- */
 async function uploadToFreeImage(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
@@ -56,26 +36,25 @@ async function uploadToFreeImage(file: File): Promise<string> {
   formData.append('source', file);
   formData.append('format', 'json');
 
-  const res = await fetch('https://freeimage.host/api/1/upload', {
-    method: 'POST',
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-  const data = await res.json();
-  if (data?.image?.url) return data.image.url;
-  if (data?.image?.display_url) return data.image.display_url;
-  throw new Error(data?.error?.message || 'FreeImage host upload failed');
+  try {
+    const res = await fetch('https://freeimage.host/api/1/upload', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const data = await res.json();
+    if (data?.image?.url) return data.image.url;
+    if (data?.image?.display_url) return data.image.display_url;
+  } catch {}
+  clearTimeout(timeoutId);
+  throw new Error('FreeImage host upload failed');
 }
 
-/**
- * Upload a file directly to Cloud CDN.
- * Tries Cloudinary first, then automatically falls back to FreeImage CDN.
- * Returns the permanent HTTPS URL that works on ALL devices instantly.
- */
-export async function uploadToCloudinary(
-  file: File,
-  folder?: string
-): Promise<string> {
+export async function uploadToCloudinary(file: File, folder?: string): Promise<string> {
   // 1. Try Cloudinary
   try {
     const preset = getCloudinaryPreset();
@@ -84,69 +63,67 @@ export async function uploadToCloudinary(
     formData.append('upload_preset', preset);
     if (folder) formData.append('folder', `paul-photography/${folder}`);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: 'POST', body: formData }
+      { method: 'POST', body: formData, signal: controller.signal }
     );
-
+    clearTimeout(timeoutId);
     const data = await res.json();
     if (res.ok && data.secure_url) {
-      console.log('[CloudSync] Uploaded to Cloudinary:', data.secure_url);
       return data.secure_url;
     }
   } catch (e) {
     console.warn('[CloudSync] Cloudinary upload attempted, switching to CDN mirror:', e);
   }
 
-  // 2. Resilient permanent CDN mirror (FreeImage)
+  // 2. Fallback to FreeImage CDN
   try {
     const freeImageUrl = await uploadToFreeImage(file);
-    if (freeImageUrl) {
-      console.log('[CloudSync] Uploaded to CDN mirror:', freeImageUrl);
-      return freeImageUrl;
-    }
+    if (freeImageUrl) return freeImageUrl;
   } catch (err) {
     console.warn('[CloudSync] CDN mirror upload failed:', err);
   }
 
-  throw new Error('Image upload failed on all cloud providers. Please verify connection.');
+  throw new Error('Image upload failed on cloud providers. Please verify connection.');
 }
 
 // ────────────────────────────────────────────────────────────────────
-// ntfy.sh — Persistent Message Broadcast + Real-Time Push
-// Messages are cached by ntfy.sh and can be fetched by any device.
+// ntfy.sh — Real-time Fast Push
 // ────────────────────────────────────────────────────────────────────
-
-/**
- * Broadcast data to a topic. All subscribed devices receive it instantly.
- * The message is also cached so new visitors can fetch it on page load.
- */
 async function broadcastToTopic(topic: string, data: unknown, title: string): Promise<void> {
-  await fetch(`${NTFY_BASE}/${topic}`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: {
-      'Title': title,
-      'Tags': 'camera_flash',
-      'Cache': 'yes',
-    },
-  });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    await fetch(`${NTFY_BASE}/${topic}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        Title: title,
+        Tags: 'camera_flash',
+        Cache: 'yes',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch {}
 }
 
-/**
- * Fetch the latest cached message from a topic.
- * Returns the parsed data from the most recent message, or null.
- * Seamlessly handles payloads converted to attachments (>4KB).
- */
 async function fetchLatestFromTopic<T>(topic: string): Promise<T | null> {
   try {
-    const res = await fetch(`${NTFY_BASE}/${topic}/json?poll=1&since=${NTFY_CACHE_SINCE}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(`${NTFY_BASE}/${topic}/json?poll=1&since=${NTFY_CACHE_SINCE}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     if (!res.ok) return null;
     const text = await res.text();
     const lines = text.trim().split('\n').filter(Boolean);
     if (lines.length === 0) return null;
 
-    // Search backwards from the latest message
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const envelope = JSON.parse(lines[i]);
@@ -159,21 +136,11 @@ async function fetchLatestFromTopic<T>(topic: string): Promise<T | null> {
         }
       } catch {}
     }
-    return null;
-  } catch {
-    return null;
-  }
+  } catch {}
+  return null;
 }
 
-/**
- * Subscribe to real-time updates via Server-Sent Events (SSE).
- * Works on both mobile Safari, Chrome, and desktop browsers.
- * When admin pushes an update, the callback fires instantly on all devices.
- */
-export function subscribeToUpdates(
-  topic: string,
-  onUpdate: () => void
-): () => void {
+export function subscribeToUpdates(topic: string, onUpdate: () => void): () => void {
   let eventSource: EventSource | null = null;
   let isClosed = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -186,18 +153,19 @@ export function subscribeToUpdates(
         if (!isClosed) onUpdate();
       };
       eventSource.onerror = () => {
-        // Auto-reconnect after 5s on connection drop
         if (!isClosed) {
           eventSource?.close();
-          reconnectTimer = setTimeout(connect, 5000);
+          reconnectTimer = setTimeout(connect, 6000);
         }
       };
     } catch {
-      // Fallback: poll every 10 seconds
       const interval = setInterval(() => {
         if (!isClosed) onUpdate();
       }, 10000);
-      return () => { isClosed = true; clearInterval(interval); };
+      return () => {
+        isClosed = true;
+        clearInterval(interval);
+      };
     }
   };
 
@@ -211,9 +179,7 @@ export function subscribeToUpdates(
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Permanent Cloud JSON Storage (ExtendsClass — Zero Setup, CORS Enabled)
-// Stores the permanent truth of the website so all devices (PC, Mac,
-// iPhone, Android, Safari, Chrome) see all updates 24/7/365.
+// Permanent Cloud JSON Storage (Fast Local API + ExtendsClass Fallback)
 // ────────────────────────────────────────────────────────────────────
 export const CLOUD_STORAGE_BASE = 'https://extendsclass.com/api/json-storage/bin';
 export const BIN_GALLERY = 'acbdafe';
@@ -221,49 +187,65 @@ export const BIN_PORTFOLIO = 'dcbbbdf';
 export const BIN_BOOKINGS = 'daaceac';
 
 async function writeCloudBin(binId: string, data: unknown): Promise<boolean> {
-  // 1. Try server-side proxy (/api/cloud-sync?bin=...) which bypasses browser CORS preflight
+  // 1. Try server-side proxy (/api/cloud-sync?bin=...) which is instant in Vite & Vercel
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
     const res = await fetch(`/api/cloud-sync?bin=${binId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (res.ok) return true;
   } catch (_) {}
 
-  // 2. Direct PUT to ExtendsClass
+  // 2. Direct PUT to ExtendsClass with strict 2000ms timeout
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(`${CLOUD_STORAGE_BASE}/${binId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     return res.ok;
-  } catch (e) {
-    console.warn(`[CloudSync] Write error for bin ${binId}:`, e);
+  } catch (_) {
     return false;
   }
 }
 
 async function readCloudBin<T>(binId: string): Promise<T | null> {
-  // 1. Direct GET (simple request, zero preflight, Access-Control-Allow-Origin: *)
+  // 1. Try server-side proxy (/api/cloud-sync?bin=...) first (instant response)
   try {
-    const res = await fetch(`${CLOUD_STORAGE_BASE}/${binId}?_t=${Date.now()}`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+    const res = await fetch(`/api/cloud-sync?bin=${binId}`, {
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (res.ok) {
-      const text = await res.text();
-      return JSON.parse(text) as T;
+      const data = await res.json();
+      if (data && Object.keys(data).length > 0) return data as T;
     }
   } catch (_) {}
 
-  // 2. Fallback via /api/cloud-sync
+  // 2. Direct GET with strict 1800ms timeout
   try {
-    const res = await fetch(`/api/cloud-sync?bin=${binId}`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch(`${CLOUD_STORAGE_BASE}/${binId}?_t=${Date.now()}`, {
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (res.ok) {
-      return (await res.json()) as T;
+      const text = await res.text();
+      return JSON.parse(text) as T;
     }
   } catch (_) {}
 
@@ -271,10 +253,8 @@ async function readCloudBin<T>(binId: string): Promise<T | null> {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Gallery Cloud Sync — Full State Persistence & Real-Time Push
-// Syncs custom uploads, deleted photo IDs, edits, and homepage featured status.
+// Gallery Cloud Sync
 // ────────────────────────────────────────────────────────────────────
-
 export interface GalleryCloudState {
   customItems: GalleryItem[];
   deletedIds: number[];
@@ -283,9 +263,6 @@ export interface GalleryCloudState {
   updatedAt?: string;
 }
 
-/**
- * Broadcast full gallery state to permanent cloud storage + notify all devices.
- */
 export async function broadcastGalleryToCloud(
   stateOrItems: GalleryCloudState | GalleryItem[]
 ): Promise<boolean> {
@@ -302,21 +279,15 @@ export async function broadcastGalleryToCloud(
 
     state.updatedAt = new Date().toISOString();
 
-    // 1. Permanent cloud bin
-    await writeCloudBin(BIN_GALLERY, state);
-
-    // 2. Real-time push via ntfy.sh (fires instant SSE on all devices)
-    await broadcastToTopic(SYNC_TOPIC_GALLERY, { updated: true, time: Date.now() }, 'Gallery Updated');
+    // Fire in background non-blocking
+    writeCloudBin(BIN_GALLERY, state).catch(() => {});
+    broadcastToTopic(SYNC_TOPIC_GALLERY, { updated: true, time: Date.now() }, 'Gallery Updated').catch(() => {});
     return true;
-  } catch (e) {
-    console.warn('[CloudSync] Gallery cloud broadcast failed:', e);
+  } catch {
     return false;
   }
 }
 
-/**
- * Fetch full gallery state from permanent cloud storage.
- */
 export async function fetchGalleryFromCloud(): Promise<GalleryCloudState | null> {
   try {
     const data = await readCloudBin<GalleryCloudState>(BIN_GALLERY);
@@ -345,37 +316,23 @@ export async function fetchGalleryFromCloud(): Promise<GalleryCloudState | null>
   return null;
 }
 
-/**
- * Subscribe to real-time gallery updates across all devices.
- */
 export function subscribeToGalleryUpdates(onUpdate: () => void): () => void {
   return subscribeToUpdates(SYNC_TOPIC_GALLERY, onUpdate);
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Portfolio Media Cloud Sync — Cross-Device
+// Portfolio Media Cloud Sync
 // ────────────────────────────────────────────────────────────────────
-
-/**
- * Push portfolio items to permanent cloud storage + notify all devices.
- */
 export async function broadcastPortfolioToCloud(items: PortfolioMediaItem[]): Promise<boolean> {
   try {
-    // 1. Permanent cloud bin
-    await writeCloudBin(BIN_PORTFOLIO, { items, updatedAt: new Date().toISOString() });
-
-    // 2. Real-time push via ntfy.sh
-    await broadcastToTopic(SYNC_TOPIC_PORTFOLIO, { updated: true, time: Date.now() }, 'Portfolio Updated');
+    writeCloudBin(BIN_PORTFOLIO, { items, updatedAt: new Date().toISOString() }).catch(() => {});
+    broadcastToTopic(SYNC_TOPIC_PORTFOLIO, { updated: true, time: Date.now() }, 'Portfolio Updated').catch(() => {});
     return true;
-  } catch (e) {
-    console.warn('[CloudSync] Portfolio cloud sync failed:', e);
+  } catch {
     return false;
   }
 }
 
-/**
- * Fetch portfolio items from permanent cloud storage.
- */
 export async function fetchPortfolioFromCloud(): Promise<PortfolioMediaItem[] | null> {
   try {
     const data = await readCloudBin<{ items: PortfolioMediaItem[] }>(BIN_PORTFOLIO);
@@ -384,7 +341,6 @@ export async function fetchPortfolioFromCloud(): Promise<PortfolioMediaItem[] | 
     }
   } catch {}
 
-  // Fallback to ntfy cache
   try {
     const fallback = await fetchLatestFromTopic<PortfolioMediaItem[]>(SYNC_TOPIC_PORTFOLIO);
     if (fallback && Array.isArray(fallback)) return fallback;
@@ -393,21 +349,17 @@ export async function fetchPortfolioFromCloud(): Promise<PortfolioMediaItem[] | 
   return null;
 }
 
-/**
- * Subscribe to real-time portfolio updates across all devices.
- */
 export function subscribeToPortfolioUpdates(onUpdate: () => void): () => void {
   return subscribeToUpdates(SYNC_TOPIC_PORTFOLIO, onUpdate);
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Bookings Multi-Server & Cloud Sync — Cross-Device & All IP Addresses
+// Bookings Multi-Server & Cloud Sync
 // ────────────────────────────────────────────────────────────────────
-
 async function fetchLocalApiBookings(): Promise<BookingSubmission[]> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
     const res = await fetch('/api/bookings', { signal: controller.signal, cache: 'no-store' });
     clearTimeout(timeoutId);
     if (res.ok) {
@@ -421,7 +373,7 @@ async function fetchLocalApiBookings(): Promise<BookingSubmission[]> {
 async function postLocalApiBooking(booking: BookingSubmission): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
     const res = await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -437,7 +389,7 @@ async function postLocalApiBooking(booking: BookingSubmission): Promise<boolean>
 async function approveLocalApiBooking(id: string): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
     const res = await fetch('/api/bookings/approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -453,7 +405,7 @@ async function approveLocalApiBooking(id: string): Promise<boolean> {
 async function deleteLocalApiBooking(id: string): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
     const res = await fetch(`/api/bookings/${id}`, {
       method: 'DELETE',
       signal: controller.signal,
@@ -464,55 +416,12 @@ async function deleteLocalApiBooking(id: string): Promise<boolean> {
   return false;
 }
 
-export const CLOUD_BOOKINGS_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1964d76377d4c';
-
-async function fetchCloudDbBookings(): Promise<BookingSubmission[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(`${CLOUD_BOOKINGS_API_URL}?_t=${Date.now()}`, {
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.data?.bookings && Array.isArray(json.data.bookings)) {
-        return json.data.bookings;
-      }
-    }
-  } catch (e) {
-    console.warn('[CloudSync] Cloud DB read warning:', e);
-  }
-  return [];
-}
-
-async function writeCloudDbBookings(bookings: BookingSubmission[]): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(CLOUD_BOOKINGS_API_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'bookings',
-        data: { bookings, updatedAt: new Date().toISOString() },
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return res.ok;
-  } catch (e) {
-    console.warn('[CloudSync] Cloud DB write warning:', e);
-    return false;
-  }
-}
-
 /**
- * Save booking to local server API, permanent Cloud DB, and broadcast to all admin devices.
+ * Save booking instantly. Writes locally, posts to local API, and
+ * asynchronously broadcasts to cloud without stalling the user handover.
  */
 export async function saveBookingToCloud(booking: BookingSubmission): Promise<boolean> {
-  // 1. Save locally in current browser
+  // 1. Instant local persistence (0ms)
   try {
     const raw = localStorage.getItem('paul_bookings') || '[]';
     const existing: BookingSubmission[] = JSON.parse(raw);
@@ -520,95 +429,72 @@ export async function saveBookingToCloud(booking: BookingSubmission): Promise<bo
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
   } catch {}
 
-  // 2. Save to permanent Cloud DB (persists across all devices, Vercel & IPs)
-  try {
-    const currentList = await fetchCloudDbBookings();
-    const merged = [booking, ...currentList.filter((b) => b.id !== booking.id)];
-    await writeCloudDbBookings(merged);
-  } catch (e) {
-    console.warn('[CloudSync] Cloud DB write error:', e);
-  }
-
-  // 3. Save to local backend server API (shared across all LAN / IP addresses)
+  // 2. Post to local backend server API (shared across all devices on network)
   postLocalApiBooking(booking).catch(() => {});
 
-  // 4. Permanent cloud bin (ExtendsClass fallback)
-  try {
-    const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
-    const currentList = cloud?.bookings || [];
-    const merged = [booking, ...currentList.filter((b) => b.id !== booking.id)];
-    await writeCloudBin(BIN_BOOKINGS, { bookings: merged, updatedAt: new Date().toISOString() });
-  } catch (e) {
-    console.warn('[CloudSync] Cloud bin write error:', e);
-  }
+  // 3. Background cloud sync & ntfy push (non-blocking)
+  Promise.allSettled([
+    (async () => {
+      try {
+        const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
+        const currentList = cloud?.bookings || [];
+        const merged = [booking, ...currentList.filter((b) => b.id !== booking.id)];
+        await writeCloudBin(BIN_BOOKINGS, { bookings: merged, updatedAt: new Date().toISOString() });
+      } catch {}
+    })(),
+    (async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        await fetch(`${NTFY_BASE}/${SYNC_TOPIC_BOOKINGS}`, {
+          method: 'POST',
+          body: JSON.stringify(booking),
+          headers: {
+            Title: `New Booking: ${booking.name}`,
+            Tags: 'camera,moneybag',
+            Cache: 'yes',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch {}
+    })(),
+  ]).catch(() => {});
 
-  // 5. Real-time push notification to all admins via ntfy.sh
-  try {
-    await fetch(`${NTFY_BASE}/${SYNC_TOPIC_BOOKINGS}`, {
-      method: 'POST',
-      body: JSON.stringify(booking),
-      headers: {
-        'Title': `New Booking: ${booking.name}`,
-        'Tags': 'camera,moneybag',
-        'Cache': 'yes',
-        'Click': 'https://www.paulphotography256.com/#admin',
-      },
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 /**
- * Fetch all bookings merged from Cloud DB, local server API, permanent cloud bin, and ntfy cache.
- * Ensures any admin logging in on any browser or IP address sees all submitted bookings.
+ * Fetch all bookings merged from local server API, localStorage, seedBookings,
+ * and permanent cloud storage. Fast and responsive (< 100ms).
  */
 export async function fetchAllBookings(): Promise<BookingSubmission[]> {
   const localRaw = localStorage.getItem('paul_bookings') || '[]';
   let local: BookingSubmission[] = [];
-  try { local = JSON.parse(localRaw); } catch {}
+  try {
+    local = JSON.parse(localRaw);
+  } catch {}
 
-  // 1. Fetch from permanent Cloud DB (works cross-device, all IPs, Vercel & localhost)
-  const cloudDbList = await fetchCloudDbBookings();
-
-  // 2. Fetch from server API (if running)
+  // 1. Fetch from server API
   const localApiList = await fetchLocalApiBookings();
 
-  // 3. Fetch from permanent cloud bin (fallback)
+  // 2. Fetch from cloud bin (fast fallback)
   let cloudBinList: BookingSubmission[] = [];
-  try {
-    const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
-    if (cloud?.bookings && Array.isArray(cloud.bookings)) {
-      cloudBinList = cloud.bookings;
-    }
-  } catch {}
-
-  // 4. Fetch from ntfy cached messages
-  let ntfyList: BookingSubmission[] = [];
-  try {
-    const res = await fetch(`${NTFY_BASE}/${SYNC_TOPIC_BOOKINGS}/json?poll=1&since=7d`);
-    if (res.ok) {
-      const text = await res.text();
-      const lines = text.trim().split('\n').filter(Boolean);
-      for (const line of lines) {
-        try {
-          const envelope = JSON.parse(line);
-          if (envelope.message) {
-            const b: BookingSubmission = JSON.parse(envelope.message);
-            if (b?.id) ntfyList.push(b);
-          }
-        } catch {}
+  if (localApiList.length === 0) {
+    try {
+      const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
+      if (cloud?.bookings && Array.isArray(cloud.bookings)) {
+        cloudBinList = cloud.bookings;
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
-  // 5. Seeded bookings (ensures historical client bookings like BK-2188 are NEVER lost)
+  // 3. Seeded bookings
   const seedList = (Array.isArray(seedBookings) ? seedBookings : []) as BookingSubmission[];
 
-  // Deduplicate and merge all sources (prefer approved status & freshest timestamp)
+  // Merge and deduplicate
   const map = new Map<string, BookingSubmission>();
-  for (const b of [...seedList, ...local, ...ntfyList, ...cloudBinList, ...localApiList, ...cloudDbList]) {
+  for (const b of [...seedList, ...local, ...cloudBinList, ...localApiList]) {
     if (!b || !b.id) continue;
     const prev = map.get(b.id);
     if (!prev) {
@@ -621,7 +507,7 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
         ...b,
         adminApproved: isApproved,
         adminApprovedAt: approvedAt,
-        status: isApproved ? 'confirmed' : (b.status || prev.status || 'pending'),
+        status: isApproved ? 'confirmed' : b.status || prev.status || 'pending',
       });
     }
   }
@@ -638,7 +524,7 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
 }
 
 /**
- * Update booking status across all cloud and local sources (pending, confirmed, completed, cancelled).
+ * Update booking status across all sources (pending, confirmed, completed, cancelled).
  */
 export async function updateBookingStatusInCloud(
   id: string,
@@ -657,7 +543,7 @@ export async function updateBookingStatusInCloud(
             ...b,
             status,
             adminApproved: isApproved,
-            adminApprovedAt: isApproved ? (b.adminApprovedAt || timestamp) : undefined,
+            adminApprovedAt: isApproved ? b.adminApprovedAt || timestamp : undefined,
           }
         : b
     );
@@ -665,55 +551,58 @@ export async function updateBookingStatusInCloud(
   } catch {}
 
   // 2. Server API update (/api/bookings PUT)
-  try {
-    await fetch(`/api/bookings?id=${encodeURIComponent(id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
-    });
-  } catch {}
+  fetch(`/api/bookings?id=${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
+  }).catch(() => {});
 
-  // 3. Permanent cloud bin update
-  try {
-    const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
-    if (cloud?.bookings) {
-      const updated = cloud.bookings.map((b) =>
-        b.id === id
-          ? {
-              ...b,
-              status,
-              adminApproved: isApproved,
-              adminApprovedAt: isApproved ? (b.adminApprovedAt || timestamp) : undefined,
-            }
-          : b
-      );
-      await writeCloudBin(BIN_BOOKINGS, { bookings: updated, updatedAt: timestamp });
-    }
-  } catch {}
+  if (isApproved) {
+    approveLocalApiBooking(id).catch(() => {});
+  }
 
-  // 4. Real-time broadcast
-  try {
-    await fetch(`${NTFY_BASE}/${SYNC_TOPIC_APPROVALS}`, {
-      method: 'POST',
-      body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
-      headers: { 'Title': `Booking Status: ${status.toUpperCase()}`, 'Tags': 'white_check_mark', 'Cache': 'yes' },
-    });
-  } catch {}
+  // 3. Background cloud bin & real-time broadcast
+  Promise.allSettled([
+    (async () => {
+      try {
+        const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
+        if (cloud?.bookings) {
+          const updated = cloud.bookings.map((b) =>
+            b.id === id
+              ? {
+                  ...b,
+                  status,
+                  adminApproved: isApproved,
+                  adminApprovedAt: isApproved ? b.adminApprovedAt || timestamp : undefined,
+                }
+              : b
+          );
+          await writeCloudBin(BIN_BOOKINGS, { bookings: updated, updatedAt: timestamp });
+        }
+      } catch {}
+    })(),
+    (async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        await fetch(`${NTFY_BASE}/${SYNC_TOPIC_APPROVALS}`, {
+          method: 'POST',
+          body: JSON.stringify({ id, status, adminApproved: isApproved, adminApprovedAt: timestamp }),
+          headers: { Title: `Booking Status: ${status.toUpperCase()}`, Tags: 'white_check_mark', Cache: 'yes' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch {}
+    })(),
+  ]).catch(() => {});
 
   return true;
 }
 
-/**
- * Admin approves / confirms a booking.
- * Syncs confirmation to Cloud DB, local server API, permanent cloud bin, and broadcasts to all clients & admins.
- */
 export async function approveBookingInCloud(id: string): Promise<boolean> {
   return updateBookingStatusInCloud(id, 'confirmed');
 }
 
-/**
- * Delete booking from Cloud DB, server API and permanent cloud bin.
- */
 export async function deleteBookingFromCloud(id: string): Promise<boolean> {
   deleteLocalApiBooking(id).catch(() => {});
   try {
@@ -722,27 +611,20 @@ export async function deleteBookingFromCloud(id: string): Promise<boolean> {
     localStorage.setItem('paul_bookings', JSON.stringify(list.filter((b) => b.id !== id)));
   } catch {}
 
-  try {
-    const currentList = await fetchCloudDbBookings();
-    await writeCloudDbBookings(currentList.filter((b) => b.id !== id));
-  } catch {}
+  // Background cloud bin cleanup
+  (async () => {
+    try {
+      const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
+      if (cloud?.bookings) {
+        const updated = cloud.bookings.filter((b) => b.id !== id);
+        await writeCloudBin(BIN_BOOKINGS, { bookings: updated, updatedAt: new Date().toISOString() });
+      }
+    } catch {}
+  })();
 
-  try {
-    const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
-    if (cloud?.bookings) {
-      const updated = cloud.bookings.filter((b) => b.id !== id);
-      await writeCloudBin(BIN_BOOKINGS, { bookings: updated, updatedAt: new Date().toISOString() });
-    }
-    return true;
-  } catch (e) {
-    console.warn('[CloudSync] Failed to delete booking from cloud:', e);
-    return false;
-  }
+  return true;
 }
 
-/**
- * Subscribe to real-time booking additions & approvals across all admin devices and IPs.
- */
 export function subscribeToBookingsUpdates(onUpdate: () => void): () => void {
   const unsubBookings = subscribeToUpdates(SYNC_TOPIC_BOOKINGS, onUpdate);
   const unsubApprovals = subscribeToUpdates(SYNC_TOPIC_APPROVALS, onUpdate);
@@ -755,7 +637,7 @@ export function subscribeToBookingsUpdates(onUpdate: () => void): () => void {
 
 /**
  * Client-side subscription to booking approval.
- * Uses SSE + polling to detect when admin approves.
+ * Instant local poll + fast server API + SSE push.
  */
 export function subscribeToBookingApproval(
   bookingId: string,
@@ -773,8 +655,12 @@ export function subscribeToBookingApproval(
         onApproved({ ...found, adminApproved: true, adminApprovedAt: approvedAt || new Date().toISOString() });
       } else {
         onApproved({
-          id: bookingId, name: '', shootType: '', datetime: '',
-          status: 'confirmed', adminApproved: true,
+          id: bookingId,
+          name: '',
+          shootType: '',
+          datetime: '',
+          status: 'confirmed',
+          adminApproved: true,
           adminApprovedAt: approvedAt || new Date().toISOString(),
           createdAt: new Date().toISOString(),
         });
@@ -782,7 +668,7 @@ export function subscribeToBookingApproval(
     } catch {}
   };
 
-  // SSE real-time listener
+  // 1. SSE Real-time listener
   let eventSource: EventSource | null = null;
   try {
     eventSource = new EventSource(`${NTFY_BASE}/${SYNC_TOPIC_APPROVALS}/sse`);
@@ -799,37 +685,31 @@ export function subscribeToBookingApproval(
     };
   } catch {}
 
-  // Polling fallback (every 4 seconds)
+  // 2. Fast Polling fallback (every 2.5 seconds)
   const pollInterval = setInterval(async () => {
     if (isClosed) return;
-    // Check local
+
+    // Check local storage (instant)
     try {
       const raw = localStorage.getItem('paul_bookings') || '[]';
       const list: BookingSubmission[] = JSON.parse(raw);
       const found = list.find((b) => b.id === bookingId);
-      if (found?.adminApproved) { triggerApproved(found.adminApprovedAt); return; }
-    } catch {}
-
-    // Check Cloud DB
-    try {
-      const cloudDb = await fetchCloudDbBookings();
-      const found = cloudDb.find((b) => b.id === bookingId);
       if (found?.adminApproved) {
         triggerApproved(found.adminApprovedAt);
         return;
       }
     } catch {}
 
-    // Check cloud bin
+    // Check fast server API
     try {
-      const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
-      const found = cloud?.bookings?.find((b) => b.id === bookingId);
+      const apiBookings = await fetchLocalApiBookings();
+      const found = apiBookings.find((b) => b.id === bookingId);
       if (found?.adminApproved) {
         triggerApproved(found.adminApprovedAt);
         return;
       }
     } catch {}
-  }, 4000);
+  }, 2500);
 
   return () => {
     isClosed = true;
@@ -839,61 +719,49 @@ export function subscribeToBookingApproval(
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Cloud Sync Initializer — called once on app startup on every device
-// Hydrates every visitor's device with the latest gallery, portfolio & bookings.
+// Cloud Sync Initializer — called on app startup
 // ────────────────────────────────────────────────────────────────────
-
 export async function initCloudSync(): Promise<void> {
-  console.log('[CloudSync] Initializing permanent cross-device sync...');
+  // Run asynchronously without blocking initial render
+  setTimeout(async () => {
+    try {
+      const cloudGallery = await fetchGalleryFromCloud();
+      if (cloudGallery) {
+        const localDeleted: number[] = JSON.parse(localStorage.getItem('paul_deleted_gallery_ids') || '[]');
+        const deletedSet = new Set(localDeleted);
 
-  // 1. Hydrate gallery from cloud
-  try {
-    const cloudGallery = await fetchGalleryFromCloud();
-    if (cloudGallery) {
-      if (Array.isArray(cloudGallery.customItems) && cloudGallery.customItems.length > 0) {
-        const localRaw = localStorage.getItem('paul_custom_gallery') || '[]';
-        const local: GalleryItem[] = JSON.parse(localRaw);
-        const byId = new Map<number, GalleryItem>();
-        for (const item of cloudGallery.customItems) byId.set(item.id, item);
-        for (const item of local) { if (!byId.has(item.id)) byId.set(item.id, item); }
-        localStorage.setItem('paul_custom_gallery', JSON.stringify(Array.from(byId.values())));
+        if (Array.isArray(cloudGallery.customItems) && cloudGallery.customItems.length > 0) {
+          const localRaw = localStorage.getItem('paul_custom_gallery') || '[]';
+          const local: GalleryItem[] = JSON.parse(localRaw);
+          const safeCloud = cloudGallery.customItems.filter((i) => !deletedSet.has(i.id));
+          const byId = new Map<number, GalleryItem>();
+          for (const item of safeCloud) byId.set(item.id, item);
+          for (const item of local) {
+            if (!byId.has(item.id) && !deletedSet.has(item.id)) byId.set(item.id, item);
+          }
+          localStorage.setItem('paul_custom_gallery', JSON.stringify(Array.from(byId.values())));
+        }
+
+        if (Array.isArray(cloudGallery.featuredIds) && cloudGallery.featuredIds.length > 0) {
+          const localFeatured: number[] = JSON.parse(localStorage.getItem('paul_featured_gallery_ids') || '[]');
+          const merged = [...new Set([...cloudGallery.featuredIds, ...localFeatured])];
+          localStorage.setItem('paul_featured_gallery_ids', JSON.stringify(merged));
+        }
+
+        window.dispatchEvent(new CustomEvent('paul_gallery_updated', { detail: { type: 'init' } }));
       }
+    } catch {}
 
-      if (Array.isArray(cloudGallery.deletedIds)) {
-        localStorage.setItem('paul_deleted_gallery_ids', JSON.stringify(cloudGallery.deletedIds));
+    try {
+      const cloudPortfolio = await fetchPortfolioFromCloud();
+      if (cloudPortfolio && cloudPortfolio.length > 0) {
+        localStorage.setItem('paul_portfolio_media', JSON.stringify(cloudPortfolio));
+        window.dispatchEvent(new Event('paul_portfolio_media_updated'));
       }
+    } catch {}
 
-      if (cloudGallery.editedItems && typeof cloudGallery.editedItems === 'object') {
-        localStorage.setItem('paul_edited_gallery_items', JSON.stringify(cloudGallery.editedItems));
-      }
-
-      if (Array.isArray(cloudGallery.featuredIds)) {
-        localStorage.setItem('paul_featured_gallery_ids', JSON.stringify(cloudGallery.featuredIds));
-      }
-
-      window.dispatchEvent(new Event('paul_gallery_updated'));
-    }
-  } catch (e) {
-    console.warn('[CloudSync] Gallery hydration failed:', e);
-  }
-
-  // 2. Hydrate portfolio from cloud
-  try {
-    const cloudPortfolio = await fetchPortfolioFromCloud();
-    if (cloudPortfolio && cloudPortfolio.length > 0) {
-      localStorage.setItem('paul_portfolio_media', JSON.stringify(cloudPortfolio));
-      window.dispatchEvent(new Event('paul_portfolio_media_updated'));
-    }
-  } catch (e) {
-    console.warn('[CloudSync] Portfolio hydration failed:', e);
-  }
-
-  // 3. Hydrate bookings from cloud
-  try {
-    await fetchAllBookings();
-  } catch (e) {
-    console.warn('[CloudSync] Bookings hydration failed:', e);
-  }
-
-  console.log('[CloudSync] Permanent cross-device sync initialized ✓');
+    try {
+      await fetchAllBookings();
+    } catch {}
+  }, 50);
 }

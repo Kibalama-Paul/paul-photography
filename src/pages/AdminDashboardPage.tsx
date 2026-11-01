@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PageRoute, GalleryItem, BookingSubmission, PortfolioMediaItem } from '../types';
 import {
   getGalleryItems, addGalleryItem, updateGalleryItem,
@@ -64,6 +64,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
   // Gallery state
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() => getGalleryItems());
+  const [galleryCategoryFilter, setGalleryCategoryFilter] = useState<'all' | 'featured' | 'portrait' | 'studio' | 'events' | 'monochrome'>('all');
+  const [gallerySearch, setGallerySearch] = useState('');
+
+  const filteredGalleryItems = useMemo(() => {
+    return galleryItems.filter((item) => {
+      if (galleryCategoryFilter === 'featured' && !item.isFeatured) return false;
+      if (galleryCategoryFilter !== 'all' && galleryCategoryFilter !== 'featured' && item.category !== galleryCategoryFilter) return false;
+      if (gallerySearch.trim()) {
+        const q = gallerySearch.toLowerCase().trim();
+        return (
+          item.title?.toLowerCase().includes(q) ||
+          item.category?.toLowerCase().includes(q) ||
+          item.id.toString().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [galleryItems, galleryCategoryFilter, gallerySearch]);
 
   // Edit Modal State
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
@@ -314,6 +332,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       url: mediaUrl.trim(),
       title: mediaTitle || `${mediaSection === 'ceo-reel' ? 'CEO Reel' : 'Portfolio'} ${mediaType === 'video' ? 'Video' : 'Image'}`,
     });
+    setPortfolioMediaItems(getPortfolioMedia());
     setMediaTitle('');
     setMediaUrl('');
     setMediaUploadSuccess(true);
@@ -325,6 +344,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     e.preventDefault();
     if (!editingMedia) return;
     updatePortfolioMedia(editingMedia);
+    setPortfolioMediaItems(getPortfolioMedia());
     setEditingMedia(null);
   };
 
@@ -358,6 +378,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       return;
     }
 
+    // Immediately refresh state
+    setGalleryItems(getGalleryItems());
     setUploadSuccess(true);
     setTitle('');
     setFrontImgUrl('');
@@ -380,18 +402,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     if (!editingItem) return;
 
     updateGalleryItem(editingItem);
+    setGalleryItems(getGalleryItems());
     setEditingItem(null);
   };
 
-  // Toggle Featured State for a picture
+  // Toggle Featured State for a picture (favorite flip cards)
   const handleToggleFeatured = (id: number) => {
     toggleFeaturedGalleryItem(id);
+    setGalleryItems(getGalleryItems());
   };
 
   // Delete Gallery Item
   const handleDeleteItem = (id: number) => {
     if (window.confirm('Are you sure you want to delete this photo from the website?')) {
       deleteGalleryItem(id);
+      setGalleryItems(getGalleryItems());
     }
   };
 
@@ -412,6 +437,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const handleResetGallery = () => {
     if (window.confirm('Reset gallery to default factory dataset? Custom uploaded images and edits will be cleared.')) {
       resetGallery();
+      setGalleryItems(getGalleryItems());
     }
   };
 
@@ -1010,18 +1036,117 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             )}
           </AnimatePresence>
 
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-cyan-400" />
-              <span>Gallery Catalog</span>
-              <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-mono lowercase">
-                {galleryItems.length} unique photos
-              </span>
-            </h3>
+          {/* Gallery Catalog Controls: Categories & Search */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-cyan-400" />
+                <span>Gallery Catalog</span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-mono lowercase">
+                  {galleryItems.length} photos
+                </span>
+              </h3>
+            </div>
+
+            {/* Quick Search */}
+            <div className="relative max-w-xs w-full">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={gallerySearch}
+                onChange={(e) => setGallerySearch(e.target.value)}
+                placeholder="Search by title, ID or category..."
+                className="w-full pl-9 pr-4 py-2 bg-black/50 border border-white/15 rounded-xl text-xs text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 transition-colors"
+              />
+              {gallerySearch && (
+                <button
+                  onClick={() => setGallerySearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {galleryItems.map((item) => (
+          {/* Category Tabs */}
+          <div className="flex flex-wrap items-center gap-2 mb-6 pb-2 border-b border-white/10">
+            <button
+              onClick={() => setGalleryCategoryFilter('all')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                galleryCategoryFilter === 'all'
+                  ? 'bg-cyan-500 text-black font-bold shadow-md'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              All Shoots ({galleryItems.length})
+            </button>
+            <button
+              onClick={() => setGalleryCategoryFilter('featured')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 ${
+                galleryCategoryFilter === 'featured'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 border border-amber-500/30'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-400" />
+              <span>Favorite Flip Cards ({galleryItems.filter((i) => i.isFeatured).length})</span>
+            </button>
+            <button
+              onClick={() => setGalleryCategoryFilter('portrait')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                galleryCategoryFilter === 'portrait'
+                  ? 'bg-purple-600 text-white font-bold shadow-md'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              Portraits ({galleryItems.filter((i) => i.category === 'portrait').length})
+            </button>
+            <button
+              onClick={() => setGalleryCategoryFilter('studio')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                galleryCategoryFilter === 'studio'
+                  ? 'bg-blue-600 text-white font-bold shadow-md'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              Studio ({galleryItems.filter((i) => i.category === 'studio').length})
+            </button>
+            <button
+              onClick={() => setGalleryCategoryFilter('events')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                galleryCategoryFilter === 'events'
+                  ? 'bg-pink-600 text-white font-bold shadow-md'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              Events ({galleryItems.filter((i) => i.category === 'events').length})
+            </button>
+            <button
+              onClick={() => setGalleryCategoryFilter('monochrome')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                galleryCategoryFilter === 'monochrome'
+                  ? 'bg-neutral-200 text-black font-bold shadow-md'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              B &amp; W ({galleryItems.filter((i) => i.category === 'monochrome').length})
+            </button>
+          </div>
+
+          {filteredGalleryItems.length === 0 ? (
+            <div className="text-center py-12 glass-panel rounded-2xl border border-white/10 text-gray-400 text-sm">
+              <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p>No photos match the selected filter.</p>
+              {galleryCategoryFilter === 'featured' && (
+                <p className="text-xs text-amber-300/80 mt-1">
+                  Click the star icon ⭐ on any photo below to add it to the Favorite Homepage Flip Cards!
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {filteredGalleryItems.map((item) => (
               <div
                 key={item.id}
                 className={`glass-panel rounded-2xl overflow-hidden border transition-all relative group flex flex-col justify-between ${item.isFeatured ? 'border-amber-400/60 ring-1 ring-amber-400/30' : 'border-white/15'
@@ -2030,10 +2155,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         </span>
                       </div>
                       <div className="absolute top-2 right-2 flex items-center gap-1">
-                        <button onClick={() => reorderPortfolioMedia(media.id, 'up')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => reorderPortfolioMedia(media.id, 'down')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { reorderPortfolioMedia(media.id, 'up'); setPortfolioMediaItems(getPortfolioMedia()); }} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { reorderPortfolioMedia(media.id, 'down'); setPortfolioMediaItems(getPortfolioMedia()); }} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setEditingMedia({ ...media })} className="p-1 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-white cursor-pointer transition-all" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { if (window.confirm('Delete this media item?')) deletePortfolioMedia(media.id); }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { if (window.confirm('Delete this media item?')) { deletePortfolioMedia(media.id); setPortfolioMediaItems(getPortfolioMedia()); } }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <div className="p-3 text-xs bg-black/40 border-t border-white/10">
@@ -2081,10 +2206,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         </span>
                       </div>
                       <div className="absolute top-2 right-2 flex items-center gap-1">
-                        <button onClick={() => reorderPortfolioMedia(media.id, 'up')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => reorderPortfolioMedia(media.id, 'down')} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { reorderPortfolioMedia(media.id, 'up'); setPortfolioMediaItems(getPortfolioMedia()); }} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { reorderPortfolioMedia(media.id, 'down'); setPortfolioMediaItems(getPortfolioMedia()); }} className="p-1 rounded-lg bg-black/60 hover:bg-black/80 text-white cursor-pointer transition-all" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setEditingMedia({ ...media })} className="p-1 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-white cursor-pointer transition-all" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => { if (window.confirm('Delete this CEO reel item?')) deletePortfolioMedia(media.id); }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { if (window.confirm('Delete this CEO reel item?')) { deletePortfolioMedia(media.id); setPortfolioMediaItems(getPortfolioMedia()); } }} className="p-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white cursor-pointer transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                       <div className="absolute bottom-2 left-2 right-2 text-center">
                         <span className="text-xs font-bold text-white bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full">{media.title}</span>
