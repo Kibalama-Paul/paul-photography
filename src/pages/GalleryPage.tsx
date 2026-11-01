@@ -26,8 +26,9 @@ export const GalleryPage: React.FC = () => {
   useEffect(() => {
     const handleCloudUpdate = async () => {
       try {
-        const cloudItems = await fetchGalleryFromCloud();
-        if (cloudItems && cloudItems.length > 0) {
+        const cloudState = await fetchGalleryFromCloud();
+        const cloudItems = cloudState?.customItems ?? [];
+        if (cloudItems.length > 0) {
           // Merge cloud data into localStorage so getGalleryItems() picks it up
           const localRaw = localStorage.getItem('paul_custom_gallery') || '[]';
           const local: GalleryItem[] = JSON.parse(localRaw);
