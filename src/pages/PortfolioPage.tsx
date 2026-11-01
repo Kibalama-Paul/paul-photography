@@ -29,17 +29,15 @@ export const PortfolioPage: React.FC<PortfolioPageProps> = ({ onNavigate }) => {
   // ── Real-time cross-device sync ──────────────────────────────────
   // Listens for SSE push from ntfy.sh so portfolio updates appear on all devices.
   useEffect(() => {
-    const handleCloudUpdate = async () => {
+    const handleCloudUpdate = async (incomingItems?: PortfolioMediaItem[]) => {
       try {
-        const cloudItems = await fetchPortfolioFromCloud();
-        if (cloudItems && cloudItems.length > 0) {
-          localStorage.setItem('paul_portfolio_media', JSON.stringify(cloudItems));
-          setPortfolioMedia(cloudItems.filter((m) => m.section === 'portfolio'));
-          setCeoReelMedia(cloudItems.filter((m) => m.section === 'ceo-reel'));
+        const items = incomingItems && incomingItems.length > 0 ? incomingItems : await fetchPortfolioFromCloud();
+        if (items && items.length > 0) {
+          localStorage.setItem('paul_portfolio_media', JSON.stringify(items));
+          setPortfolioMedia(items.filter((m) => m.section === 'portfolio'));
+          setCeoReelMedia(items.filter((m) => m.section === 'ceo-reel'));
         }
-      } catch {
-        // Silent fail
-      }
+      } catch {}
     };
 
     const unsubscribe = subscribeToPortfolioUpdates(handleCloudUpdate);
