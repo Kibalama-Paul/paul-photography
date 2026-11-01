@@ -5,7 +5,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4873_qnmjsm.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 117,
@@ -13,7 +13,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731861/IMG_4874_sxogv6.jpg",
     "title": "Portraits",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 116,
@@ -29,7 +29,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731865/IMG_4641_i5in1n.jpg",
     "title": "portrait",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 114,
