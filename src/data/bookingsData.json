@@ -1,0 +1,19 @@
+[
+  {
+    "id": "BK-2188",
+    "name": "kalette dan",
+    "phone": "0757460297",
+    "datetime": "2026-11-08T11:29",
+    "shootType": "Birthday party",
+    "location": "Kampala",
+    "budget": "UGX 50,000",
+    "notes": "Booked via Paul Photography Portal",
+    "status": "pending",
+    "paymentMethod": "Airtel Money",
+    "paymentStatus": "confirmed",
+    "transactionId": "160252189262",
+    "amountPaid": "50,000",
+    "createdAt": "2026-11-01T08:35:00.000Z",
+    "adminApproved": false
+  }
+]

@@ -1,4 +1,5 @@
 import { BookingSubmission, GalleryItem, PortfolioMediaItem } from '../types';
+import seedBookings from '../data/bookingsData.json';
 
 // ────────────────────────────────────────────────────────────────────
 // Paul Photography — Cross-Device Cloud Sync Engine
@@ -441,8 +442,52 @@ async function deleteLocalApiBooking(id: string): Promise<boolean> {
   return false;
 }
 
+export const CLOUD_BOOKINGS_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1964d76377d4c';
+
+async function fetchCloudDbBookings(): Promise<BookingSubmission[]> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`${CLOUD_BOOKINGS_API_URL}?_t=${Date.now()}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.data?.bookings && Array.isArray(json.data.bookings)) {
+        return json.data.bookings;
+      }
+    }
+  } catch (e) {
+    console.warn('[CloudSync] Cloud DB read warning:', e);
+  }
+  return [];
+}
+
+async function writeCloudDbBookings(bookings: BookingSubmission[]): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(CLOUD_BOOKINGS_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'bookings',
+        data: { bookings, updatedAt: new Date().toISOString() },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return res.ok;
+  } catch (e) {
+    console.warn('[CloudSync] Cloud DB write warning:', e);
+    return false;
+  }
+}
+
 /**
- * Save booking to local server API, permanent cloud bin, and broadcast to all admin devices.
+ * Save booking to local server API, permanent Cloud DB, and broadcast to all admin devices.
  */
 export async function saveBookingToCloud(booking: BookingSubmission): Promise<boolean> {
   // 1. Save locally in current browser
@@ -453,10 +498,19 @@ export async function saveBookingToCloud(booking: BookingSubmission): Promise<bo
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
   } catch {}
 
-  // 2. Save to local backend server API (shared across all LAN / IP addresses)
+  // 2. Save to permanent Cloud DB (persists across all devices, Vercel & IPs)
+  try {
+    const currentList = await fetchCloudDbBookings();
+    const merged = [booking, ...currentList.filter((b) => b.id !== booking.id)];
+    await writeCloudDbBookings(merged);
+  } catch (e) {
+    console.warn('[CloudSync] Cloud DB write error:', e);
+  }
+
+  // 3. Save to local backend server API (shared across all LAN / IP addresses)
   postLocalApiBooking(booking).catch(() => {});
 
-  // 3. Permanent cloud bin (ExtendsClass - globally accessible across all IPs)
+  // 4. Permanent cloud bin (ExtendsClass fallback)
   try {
     const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
     const currentList = cloud?.bookings || [];
@@ -466,7 +520,7 @@ export async function saveBookingToCloud(booking: BookingSubmission): Promise<bo
     console.warn('[CloudSync] Cloud bin write error:', e);
   }
 
-  // 4. Real-time push notification to all admins via ntfy.sh
+  // 5. Real-time push notification to all admins via ntfy.sh
   try {
     await fetch(`${NTFY_BASE}/${SYNC_TOPIC_BOOKINGS}`, {
       method: 'POST',
@@ -485,7 +539,7 @@ export async function saveBookingToCloud(booking: BookingSubmission): Promise<bo
 }
 
 /**
- * Fetch all bookings merged from local server API, permanent cloud bin, and ntfy cache.
+ * Fetch all bookings merged from Cloud DB, local server API, permanent cloud bin, and ntfy cache.
  * Ensures any admin logging in on any browser or IP address sees all submitted bookings.
  */
 export async function fetchAllBookings(): Promise<BookingSubmission[]> {
@@ -493,19 +547,22 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
   let local: BookingSubmission[] = [];
   try { local = JSON.parse(localRaw); } catch {}
 
-  // 1. Fetch from server API (if running)
+  // 1. Fetch from permanent Cloud DB (works cross-device, all IPs, Vercel & localhost)
+  const cloudDbList = await fetchCloudDbBookings();
+
+  // 2. Fetch from server API (if running)
   const localApiList = await fetchLocalApiBookings();
 
-  // 2. Fetch from permanent cloud bin
-  let cloudList: BookingSubmission[] = [];
+  // 3. Fetch from permanent cloud bin (fallback)
+  let cloudBinList: BookingSubmission[] = [];
   try {
     const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
     if (cloud?.bookings && Array.isArray(cloud.bookings)) {
-      cloudList = cloud.bookings;
+      cloudBinList = cloud.bookings;
     }
   } catch {}
 
-  // 3. Fetch from ntfy cached messages
+  // 4. Fetch from ntfy cached messages
   let ntfyList: BookingSubmission[] = [];
   try {
     const res = await fetch(`${NTFY_BASE}/${SYNC_TOPIC_BOOKINGS}/json?poll=1&since=7d`);
@@ -524,9 +581,12 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
     }
   } catch {}
 
+  // 5. Seeded bookings (ensures historical client bookings like BK-2188 are NEVER lost)
+  const seedList = (Array.isArray(seedBookings) ? seedBookings : []) as BookingSubmission[];
+
   // Deduplicate and merge all sources (prefer approved status & freshest timestamp)
   const map = new Map<string, BookingSubmission>();
-  for (const b of [...ntfyList, ...cloudList, ...localApiList, ...local]) {
+  for (const b of [...seedList, ...local, ...ntfyList, ...cloudBinList, ...localApiList, ...cloudDbList]) {
     if (!b || !b.id) continue;
     const prev = map.get(b.id);
     if (!prev) {
@@ -557,7 +617,7 @@ export async function fetchAllBookings(): Promise<BookingSubmission[]> {
 
 /**
  * Admin approves / confirms a booking.
- * Syncs confirmation to local server API, permanent cloud bin, and broadcasts to all clients & admins.
+ * Syncs confirmation to Cloud DB, local server API, permanent cloud bin, and broadcasts to all clients & admins.
  */
 export async function approveBookingInCloud(id: string): Promise<boolean> {
   const timestamp = new Date().toISOString();
@@ -572,10 +632,23 @@ export async function approveBookingInCloud(id: string): Promise<boolean> {
     localStorage.setItem('paul_bookings', JSON.stringify(updated));
   } catch {}
 
-  // 2. Server API update
+  // 2. Permanent Cloud DB update
+  try {
+    const currentList = await fetchCloudDbBookings();
+    if (currentList.length > 0) {
+      const updated = currentList.map((b) =>
+        b.id === id ? { ...b, adminApproved: true, adminApprovedAt: timestamp, status: 'confirmed' as const } : b
+      );
+      await writeCloudDbBookings(updated);
+    }
+  } catch (e) {
+    console.warn('[CloudSync] Cloud DB approval write error:', e);
+  }
+
+  // 3. Server API update
   approveLocalApiBooking(id).catch(() => {});
 
-  // 3. Permanent cloud bin update
+  // 4. Permanent cloud bin update
   try {
     const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
     if (cloud?.bookings) {
@@ -586,7 +659,7 @@ export async function approveBookingInCloud(id: string): Promise<boolean> {
     }
   } catch {}
 
-  // 4. Broadcast approval notification
+  // 5. Broadcast approval notification
   try {
     await fetch(`${NTFY_BASE}/${SYNC_TOPIC_APPROVALS}`, {
       method: 'POST',
@@ -600,10 +673,21 @@ export async function approveBookingInCloud(id: string): Promise<boolean> {
 }
 
 /**
- * Delete booking from server API and permanent cloud bin.
+ * Delete booking from Cloud DB, server API and permanent cloud bin.
  */
 export async function deleteBookingFromCloud(id: string): Promise<boolean> {
   deleteLocalApiBooking(id).catch(() => {});
+  try {
+    const raw = localStorage.getItem('paul_bookings') || '[]';
+    const list: BookingSubmission[] = JSON.parse(raw);
+    localStorage.setItem('paul_bookings', JSON.stringify(list.filter((b) => b.id !== id)));
+  } catch {}
+
+  try {
+    const currentList = await fetchCloudDbBookings();
+    await writeCloudDbBookings(currentList.filter((b) => b.id !== id));
+  } catch {}
+
   try {
     const cloud = await readCloudBin<{ bookings: BookingSubmission[] }>(BIN_BOOKINGS);
     if (cloud?.bookings) {
@@ -685,6 +769,16 @@ export function subscribeToBookingApproval(
       const list: BookingSubmission[] = JSON.parse(raw);
       const found = list.find((b) => b.id === bookingId);
       if (found?.adminApproved) { triggerApproved(found.adminApprovedAt); return; }
+    } catch {}
+
+    // Check Cloud DB
+    try {
+      const cloudDb = await fetchCloudDbBookings();
+      const found = cloudDb.find((b) => b.id === bookingId);
+      if (found?.adminApproved) {
+        triggerApproved(found.adminApprovedAt);
+        return;
+      }
     } catch {}
 
     // Check cloud bin
