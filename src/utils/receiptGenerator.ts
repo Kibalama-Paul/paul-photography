@@ -242,9 +242,7 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
         <div class="sig-name">${data.clientName}</div>
       </div>
       <div class="sig-box">
-        <div class="sig-space">
-          <img src="https://iili.io/nUkrIg2.png" alt="Authorized Signature" class="sig-img" />
-        </div>
+        <div class="sig-space"></div>
         <div class="sig-line"></div>
         <div class="sig-lbl">Authorized By</div>
         <div class="sig-name">Kibalama Paul — CEO</div>

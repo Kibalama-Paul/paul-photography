@@ -1552,7 +1552,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           </motion.div>
         );
       })()}
-      )}
 
       {/* ---------------------------------------------------- */}
       {/* TAB: RECEIPT BUILDER                                  */}

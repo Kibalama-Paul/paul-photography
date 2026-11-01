@@ -653,7 +653,7 @@ function i_(n,s){let r=!1;const c=f=>{if(!r)try{const p=localStorage.getItem("pa
         <div class="sig-name">${n.clientName}</div>
       </div>
       <div class="sig-box">
-        <div class="sig-space"><img src="https://iili.io/nUkrIg2.png" alt="Authorized Signature" class="sig-img" /></div>
+        <div class="sig-space"></div>
         <div class="sig-line"></div>
         <div class="sig-lbl">Authorized By</div>
         <div class="sig-name">Kibalama Paul — CEO</div>
