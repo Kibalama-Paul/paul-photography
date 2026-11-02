@@ -20,14 +20,14 @@ import { saveBookingToCloud, subscribeToBookingApproval } from '../utils/cloudSy
 // ────────────────────────────────────────────────────────────────────
 type TxnValidity = 'idle' | 'valid' | 'invalid';
 
-export interface ParsedAirtelSms {
+interface ParsedAirtelSms {
   tid?: string;
   amount?: string;
   senderPhone?: string;
   senderName?: string;
 }
 
-export const parseAirtelSms = (text: string): ParsedAirtelSms => {
+const parseAirtelSms = (text: string): ParsedAirtelSms => {
   const result: ParsedAirtelSms = {};
   if (!text) return result;
 
@@ -64,7 +64,7 @@ export const parseAirtelSms = (text: string): ParsedAirtelSms => {
   return result;
 };
 
-export const validateTxnId = (id: string): TxnValidity => {
+const validateTxnId = (id: string): TxnValidity => {
   if (!id) return 'idle';
   const clean = id.trim().replace(/^["']|["']$/g, '').replace(/[.,;:]+$/, '');
   if (!clean) return 'idle';
