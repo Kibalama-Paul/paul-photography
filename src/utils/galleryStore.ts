@@ -38,10 +38,15 @@ export const deduplicateItems = (items: GalleryItem[]): GalleryItem[] => {
  * Default IDs that ship featured from galleryData.
  */
 const getDefaultFeaturedIds = (): number[] => {
-  const defaults = GALLERY_ITEMS.filter((item) => item.isFeatured).map((item) => item.id);
+  const defaults = GALLERY_ITEMS
+    .filter((item) => item.isFeatured && item.frontImg && item.id !== 3 && item.id !== 116)
+    .map((item) => item.id);
   // Ensure we have at least 4 default featured items for homepage flip cards
   if (defaults.length < 4) {
-    const additional = GALLERY_ITEMS.slice(0, 4).map((i) => i.id);
+    const additional = GALLERY_ITEMS
+      .filter((item) => item.frontImg && item.id !== 3 && item.id !== 116)
+      .slice(0, 4)
+      .map((i) => i.id);
     return [...new Set([...defaults, ...additional])];
   }
   return defaults;
@@ -54,8 +59,10 @@ export const getActiveFeaturedIds = (): number[] => {
   try {
     const featuredIdsRaw = localStorage.getItem(FEATURED_KEY);
     if (featuredIdsRaw) {
-      const parsed: number[] = JSON.parse(featuredIdsRaw);
+      let parsed: number[] = JSON.parse(featuredIdsRaw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Exclude unfeatured / broken IDs
+        parsed = parsed.filter((id) => id !== 3 && id !== 116);
         return parsed;
       }
     }
@@ -147,27 +154,31 @@ export const getGalleryItems = (): GalleryItem[] => {
         return item;
       });
 
-    const combined = [...filteredCustom, ...filteredDefaults];
+    const combined = [...filteredCustom, ...filteredDefaults].filter(
+      (item) => item && item.frontImg && item.frontImg.trim().length > 0 && item.id !== 3
+    );
 
-    // Attach real-time isFeatured property
+    // Attach real-time isFeatured property (strictly excluding IDs 3 and 116)
     const withFeatured = combined.map((item) => ({
       ...item,
-      isFeatured: featuredSet.has(item.id),
+      isFeatured: featuredSet.has(item.id) && item.id !== 3 && item.id !== 116,
     }));
 
     return deduplicateItems(withFeatured);
   } catch (e) {
     console.error('Failed to parse gallery from storage:', e);
-    return deduplicateItems(GALLERY_ITEMS);
+    return deduplicateItems(GALLERY_ITEMS.filter((i) => i.frontImg && i.id !== 3));
   }
 };
 
 /**
  * Get featured gallery items for the Homepage 3D Flip Card sampler.
- * Guarantees featured items are returned in real-time.
+ * Guarantees featured items are returned in real-time with valid images.
  */
 export const getFeaturedGalleryItems = (): GalleryItem[] => {
-  const allItems = getGalleryItems();
+  const allItems = getGalleryItems().filter(
+    (item) => item.frontImg && item.frontImg.trim().length > 0 && item.id !== 3 && item.id !== 116
+  );
   const featured = allItems.filter((item) => item.isFeatured);
 
   if (featured.length >= 4) {

@@ -890,7 +890,7 @@ export async function initCloudSync(): Promise<void> {
 
         if (Array.isArray(cloudGallery.featuredIds) && cloudGallery.featuredIds.length > 0) {
           const localFeatured: number[] = JSON.parse(localStorage.getItem('paul_featured_gallery_ids') || '[]');
-          const merged = [...new Set([...cloudGallery.featuredIds, ...localFeatured])];
+          const merged = [...new Set([...cloudGallery.featuredIds, ...localFeatured])].filter((id) => id !== 3 && id !== 116);
           localStorage.setItem('paul_featured_gallery_ids', JSON.stringify(merged));
         }
 
