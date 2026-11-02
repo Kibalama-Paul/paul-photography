@@ -1,5 +1,21 @@
 [
   {
+    "id": 120,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731867/IMG_4380_3_qrbw0g.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731867/IMG_4380_3_qrbw0g.jpg",
+    "title": "Studio portrait",
+    "category": "portrait",
+    "isFeatured": false
+  },
+  {
+    "id": 119,
+    "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731868/5D1A9837.jpg_2_fueg6f.jpg",
+    "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4447_x3nwjs.jpg",
+    "title": "Outdoor ",
+    "category": "portrait",
+    "isFeatured": true
+  },
+  {
     "id": 118,
     "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731862/IMG_4565_fabrra.jpg",
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4873_qnmjsm.jpg",
@@ -29,7 +45,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731865/IMG_4641_i5in1n.jpg",
     "title": "portrait",
     "category": "portrait",
-    "isFeatured": false
+    "isFeatured": true
   },
   {
     "id": 114,
@@ -37,7 +53,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731866/IMG_4619_pxtufc.jpg",
     "title": "Portrait",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 113,
@@ -45,7 +61,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731862/IMG_4762_2_yfo5fk.jpg",
     "title": "Portrait",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 112,
@@ -125,7 +141,7 @@
     "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599964/_MG_0871_etx8hy.jpg",
     "title": "Photo Shoot #4",
     "category": "portrait",
-    "isFeatured": true
+    "isFeatured": false
   },
   {
     "id": 5,
