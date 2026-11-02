@@ -6,32 +6,57 @@ import json
 from datetime import datetime
 
 PORT = 5173
-DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dist'))
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+DIST_DIR = os.path.join(PROJECT_DIR, 'dist')
+DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 BOOKINGS_FILE = os.path.join(DATA_DIR, 'bookings.json')
+GALLERY_FILE = os.path.join(PROJECT_DIR, 'src', 'data', 'galleryData.json')
+PORTFOLIO_FILE = os.path.join(DATA_DIR, 'portfolio.json')
 
 os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(BOOKINGS_FILE):
     with open(BOOKINGS_FILE, 'w', encoding='utf-8') as f:
         json.dump([], f)
 
-def read_bookings():
+if not os.path.exists(PORTFOLIO_FILE):
+    with open(PORTFOLIO_FILE, 'w', encoding='utf-8') as f:
+        json.dump([], f)
+
+def read_json_file(filepath):
     try:
-        if os.path.exists(BOOKINGS_FILE):
-            with open(BOOKINGS_FILE, 'r', encoding='utf-8') as f:
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        print(f"[API] Error reading bookings: {e}")
+        print(f"[API] Error reading {filepath}: {e}")
     return []
 
-def write_bookings(bookings):
+def write_json_file(filepath, data):
     try:
-        with open(BOOKINGS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(bookings, f, indent=2, ensure_ascii=False)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
-        print(f"[API] Error saving bookings: {e}")
+        print(f"[API] Error writing {filepath}: {e}")
         return False
+
+def read_bookings():
+    return read_json_file(BOOKINGS_FILE)
+
+def write_bookings(bookings):
+    return write_json_file(BOOKINGS_FILE, bookings)
+
+def read_gallery():
+    return read_json_file(GALLERY_FILE)
+
+def write_gallery(items):
+    return write_json_file(GALLERY_FILE, items)
+
+def read_portfolio():
+    return read_json_file(PORTFOLIO_FILE)
+
+def write_portfolio(items):
+    return write_json_file(PORTFOLIO_FILE, items)
 
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -55,6 +80,30 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
         if req_path == '/api/bookings':
             bookings = read_bookings()
             payload = json.dumps(bookings).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self._set_cors_headers()
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
+        # API: Gallery List
+        if req_path == '/api/gallery':
+            items = read_gallery()
+            payload = json.dumps(items).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self._set_cors_headers()
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
+        # API: Portfolio List
+        if req_path == '/api/portfolio':
+            items = read_portfolio()
+            payload = json.dumps(items).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self._set_cors_headers()
@@ -102,6 +151,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         req_path = self.path.split('?')[0].split('#')[0]
 
+        # Order creation - Immediate 202 Accepted response
         if req_path == '/api/bookings' or req_path == '/api/bookings/save':
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length).decode('utf-8')
@@ -118,8 +168,9 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
                 write_bookings(bookings)
 
-                response_data = json.dumps({'success': True, 'booking': new_booking, 'bookings': bookings}).encode('utf-8')
-                self.send_response(200)
+                # Return immediate 202 Accepted with lean payload
+                response_data = json.dumps({'success': True, 'id': new_booking.get('id'), 'status': 'accepted'}).encode('utf-8')
+                self.send_response(202)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self._set_cors_headers()
                 self.send_header('Content-Length', str(len(response_data)))
@@ -135,6 +186,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(err)
                 return
 
+        # Booking approval
         if req_path == '/api/bookings/approve' or req_path.startswith('/api/bookings/approve/'):
             content_length = int(self.headers.get('Content-Length', 0))
             booking_id = None
@@ -157,12 +209,74 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
                         b['status'] = 'confirmed'
                 write_bookings(bookings)
 
-                res = json.dumps({'success': True, 'id': booking_id, 'approvedAt': ts, 'bookings': bookings}).encode('utf-8')
+                res = json.dumps({'success': True, 'id': booking_id, 'approvedAt': ts, 'status': 'confirmed'}).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self._set_cors_headers()
                 self.end_headers()
                 self.wfile.write(res)
+                return
+
+        # Gallery Add / Update
+        if req_path == '/api/gallery' or req_path == '/api/gallery/featured':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                payload = json.loads(body)
+                items = read_gallery()
+
+                if isinstance(payload, list):
+                    items = payload
+                elif isinstance(payload, dict) and 'id' in payload:
+                    idx = next((i for i, it in enumerate(items) if it.get('id') == payload['id']), None)
+                    if idx is not None:
+                        items[idx] = {**items[idx], **payload}
+                    else:
+                        items.insert(0, payload)
+
+                write_gallery(items)
+                res = json.dumps({'success': True, 'count': len(items)}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+            except Exception as e:
+                self.send_response(400)
+                self._set_cors_headers()
+                self.end_headers()
+                return
+
+        # Portfolio Add / Update
+        if req_path == '/api/portfolio':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                payload = json.loads(body)
+                items = read_portfolio()
+
+                if isinstance(payload, list):
+                    items = payload
+                elif isinstance(payload, dict) and 'id' in payload:
+                    idx = next((i for i, it in enumerate(items) if it.get('id') == payload['id']), None)
+                    if idx is not None:
+                        items[idx] = {**items[idx], **payload}
+                    else:
+                        items.insert(0, payload)
+
+                write_portfolio(items)
+                res = json.dumps({'success': True, 'count': len(items)}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+            except Exception as e:
+                self.send_response(400)
+                self._set_cors_headers()
+                self.end_headers()
                 return
 
         if req_path == '/api/cloud-sync':
@@ -203,29 +317,61 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_PUT(self):
         req_path = self.path.split('?')[0].split('#')[0]
-        # /api/bookings/:id or /api/bookings
-        parts = req_path.strip('/').split('/')
-        booking_id = parts[-1] if len(parts) >= 3 else None
-
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
         try:
             patch_data = json.loads(body)
-            if not booking_id:
-                booking_id = patch_data.get('id')
 
-            bookings = read_bookings()
-            for b in bookings:
-                if b.get('id') == booking_id:
-                    b.update(patch_data)
-            write_bookings(bookings)
+            if req_path.startswith('/api/bookings'):
+                parts = req_path.strip('/').split('/')
+                booking_id = parts[-1] if len(parts) >= 3 else patch_data.get('id')
+                bookings = read_bookings()
+                for b in bookings:
+                    if b.get('id') == booking_id:
+                        b.update(patch_data)
+                write_bookings(bookings)
+                res = json.dumps({'success': True, 'id': booking_id, 'status': 'updated'}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
 
-            res = json.dumps({'success': True, 'bookings': bookings}).encode('utf-8')
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self._set_cors_headers()
-            self.end_headers()
-            self.wfile.write(res)
+            if req_path.startswith('/api/gallery'):
+                items = read_gallery()
+                if isinstance(patch_data, list):
+                    items = patch_data
+                elif 'id' in patch_data:
+                    for it in items:
+                        if it.get('id') == patch_data['id']:
+                            it.update(patch_data)
+                write_gallery(items)
+                res = json.dumps({'success': True}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+
+            if req_path.startswith('/api/portfolio'):
+                items = read_portfolio()
+                if isinstance(patch_data, list):
+                    items = patch_data
+                elif 'id' in patch_data:
+                    for it in items:
+                        if it.get('id') == patch_data['id']:
+                            it.update(patch_data)
+                write_portfolio(items)
+                res = json.dumps({'success': True}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+
         except Exception as e:
             self.send_response(400)
             self._set_cors_headers()
@@ -233,20 +379,51 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         req_path = self.path.split('?')[0].split('#')[0]
-        parts = req_path.strip('/').split('/')
-        booking_id = parts[-1] if len(parts) >= 3 else None
 
-        if booking_id:
-            bookings = read_bookings()
-            bookings = [b for b in bookings if b.get('id') != booking_id]
-            write_bookings(bookings)
-            res = json.dumps({'success': True, 'id': booking_id, 'bookings': bookings}).encode('utf-8')
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self._set_cors_headers()
-            self.end_headers()
-            self.wfile.write(res)
-            return
+        if req_path.startswith('/api/bookings'):
+            parts = req_path.strip('/').split('/')
+            booking_id = parts[-1] if len(parts) >= 3 else None
+            if booking_id:
+                bookings = read_bookings()
+                bookings = [b for b in bookings if b.get('id') != booking_id]
+                write_bookings(bookings)
+                res = json.dumps({'success': True, 'id': booking_id, 'status': 'deleted'}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+
+        if req_path.startswith('/api/gallery'):
+            parts = req_path.strip('/').split('/')
+            target_id = int(parts[-1]) if len(parts) >= 3 and parts[-1].isdigit() else None
+            if target_id is not None:
+                items = read_gallery()
+                items = [it for it in items if it.get('id') != target_id]
+                write_gallery(items)
+                res = json.dumps({'success': True, 'deletedId': target_id}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+
+        if req_path.startswith('/api/portfolio'):
+            parts = req_path.strip('/').split('/')
+            target_id = parts[-1] if len(parts) >= 3 else None
+            if target_id:
+                items = read_portfolio()
+                items = [it for it in items if it.get('id') != target_id]
+                write_portfolio(items)
+                res = json.dumps({'success': True, 'deletedId': target_id}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
 
         self.send_response(400)
         self._set_cors_headers()
@@ -254,7 +431,6 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     socketserver.TCPServer.allow_reuse_address = True
-    # Bind to "" (0.0.0.0) so all IP addresses on the network can connect
     with socketserver.TCPServer(("", PORT), SPAHandler) as httpd:
         print(f"Paul Photography server running at http://0.0.0.0:{PORT}")
         print(f"Accessible via all network IPs and localhost:{PORT}")

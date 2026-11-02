@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, User, Phone, CheckCircle2, MessageCircle,
   ExternalLink, ShieldCheck, MapPin, Wallet, Copy, Check, Smartphone,
-  AlertCircle, Hourglass, Sparkles, BadgeCheck, XCircle, ShieldX, FileDown, Printer
+  AlertCircle, Hourglass, Sparkles, BadgeCheck, XCircle, ShieldX, Printer
 } from 'lucide-react';
-import { bookingToReceiptData, printReceipt, downloadReceiptHTML } from '../utils/receiptGenerator';
+import { bookingToReceiptData, printReceipt } from '../utils/receiptGenerator';
 import { saveBookingToCloud, subscribeToBookingApproval } from '../utils/cloudSync';
 
 // ────────────────────────────────────────────────────────────────────
@@ -451,16 +451,11 @@ export const BookingPage: React.FC = () => {
 
               {/* Action buttons */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
-                className="flex flex-col sm:flex-row gap-2.5 mb-3">
+                className="mb-3">
                 <button
                   onClick={() => printReceipt(bookingToReceiptData(approvedBooking))}
-                  className="flex-1 py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 shadow-lg shadow-violet-900/40">
-                  <Printer className="w-4 h-4" /><span>Print Receipt</span>
-                </button>
-                <button
-                  onClick={() => downloadReceiptHTML(bookingToReceiptData(approvedBooking))}
-                  className="flex-1 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 shadow-lg shadow-indigo-900/40">
-                  <FileDown className="w-4 h-4" /><span>Download Receipt</span>
+                  className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-violet-900/40">
+                  <Printer className="w-4 h-4" /><span>Print / Save PDF Receipt</span>
                 </button>
               </motion.div>
               <motion.button initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.05 }}

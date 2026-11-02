@@ -285,7 +285,7 @@ export const generateReceiptHTML = (data: ReceiptData): string => {
 // Actions
 // ──────────────────────────────────────────────────────────────────
 
-/** Opens receipt in a new tab via Blob URL — reliably works across all browsers */
+/** Opens receipt in a new tab via Blob URL formatted for high-definition print / Save as PDF */
 export const printReceipt = (data: ReceiptData): void => {
   const html = generateReceiptHTML(data);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -299,16 +299,3 @@ export const printReceipt = (data: ReceiptData): void => {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 };
 
-/** Downloads receipt as a self-contained HTML file */
-export const downloadReceiptHTML = (data: ReceiptData): void => {
-  const html = generateReceiptHTML(data);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Receipt-${data.receiptNo || 'PaulPhotography'}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};

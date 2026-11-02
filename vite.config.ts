@@ -8,12 +8,16 @@ function paulDevApiPlugin() {
   const dataDir = path.resolve(__dirname, 'data');
   const bookingsFile = path.resolve(dataDir, 'bookings.json');
   const galleryFile = path.resolve(__dirname, 'src/data/galleryData.json');
+  const portfolioFile = path.resolve(dataDir, 'portfolio.json');
 
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
   if (!fs.existsSync(bookingsFile)) {
     fs.writeFileSync(bookingsFile, '[]');
+  }
+  if (!fs.existsSync(portfolioFile)) {
+    fs.writeFileSync(portfolioFile, '[]');
   }
 
   const readBookings = () => {
@@ -45,6 +49,23 @@ function paulDevApiPlugin() {
     }
   };
 
+  const readPortfolio = () => {
+    try {
+      if (fs.existsSync(portfolioFile)) {
+        return JSON.parse(fs.readFileSync(portfolioFile, 'utf-8') || '[]');
+      }
+    } catch {}
+    return [];
+  };
+
+  const writePortfolio = (data: any) => {
+    try {
+      fs.writeFileSync(portfolioFile, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[Vite API] Could not write portfolio file:', e);
+    }
+  };
+
   return {
     name: 'paul-dev-api-plugin',
     configureServer(server: any) {
@@ -63,6 +84,7 @@ function paulDevApiPlugin() {
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
           if (req.method === 'OPTIONS') {
             res.statusCode = 204;
@@ -90,7 +112,7 @@ function paulDevApiPlugin() {
                   b.id === id ? { ...b, adminApproved: true, adminApprovedAt: now, status: 'confirmed' } : b
                 );
                 writeBookings(bookings);
-                res.end(JSON.stringify({ success: true, id, bookings }));
+                res.end(JSON.stringify({ success: true, id, status: 'confirmed' }));
                 return;
               }
 
@@ -102,7 +124,9 @@ function paulDevApiPlugin() {
                   bookings.unshift(payload);
                 }
                 writeBookings(bookings);
-                res.end(JSON.stringify({ success: true, booking: payload, bookings }));
+                // Immediate 202 Accepted response with lean payload
+                res.statusCode = 202;
+                res.end(JSON.stringify({ success: true, id: payload.id, status: 'accepted' }));
                 return;
               }
 
@@ -120,7 +144,7 @@ function paulDevApiPlugin() {
                     bookings.unshift(payload);
                   }
                   writeBookings(bookings);
-                  res.end(JSON.stringify({ success: true, id, bookings }));
+                  res.end(JSON.stringify({ success: true, id, status: 'updated' }));
                   return;
                 }
               }
@@ -129,7 +153,7 @@ function paulDevApiPlugin() {
                 const id = payload.id || url.split('/').pop() || (rawUrl.includes('id=') ? new URL(rawUrl, 'http://localhost').searchParams.get('id') : null);
                 bookings = bookings.filter((b: any) => b.id !== id);
                 writeBookings(bookings);
-                res.end(JSON.stringify({ success: true, id, bookings }));
+                res.end(JSON.stringify({ success: true, id, status: 'deleted' }));
                 return;
               }
             } catch (err) {
@@ -143,12 +167,13 @@ function paulDevApiPlugin() {
           return;
         }
 
-        // 2. Gallery API (Real-time disk persistence for edits, deletes, and featured flip cards)
+        // 2. Gallery API
         if (url === '/api/gallery' || url === '/api/gallery/delete' || url === '/api/gallery/featured') {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
           if (req.method === 'OPTIONS') {
             res.statusCode = 204;
@@ -204,6 +229,67 @@ function paulDevApiPlugin() {
                   }
                 }
                 writeGallery(items);
+                res.end(JSON.stringify({ success: true, count: items.length }));
+                return;
+              }
+            } catch (err) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: String(err) }));
+              return;
+            }
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: 'Not found' }));
+          });
+          return;
+        }
+
+        // 3. Portfolio API (Real-time disk persistence for photos and videos)
+        if (url === '/api/portfolio' || url?.startsWith('/api/portfolio/')) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
+          if (req.method === 'GET') {
+            const items = readPortfolio();
+            res.end(JSON.stringify(items));
+            return;
+          }
+
+          let body = '';
+          req.on('data', (chunk: any) => (body += chunk));
+          req.on('end', () => {
+            try {
+              let items = readPortfolio();
+              const payload = body ? JSON.parse(body) : {};
+
+              if (req.method === 'DELETE') {
+                const id = payload.id || url.split('/').pop();
+                items = items.filter((item: any) => item.id !== id);
+                writePortfolio(items);
+                res.end(JSON.stringify({ success: true, deletedId: id }));
+                return;
+              }
+
+              if (req.method === 'POST' || req.method === 'PUT') {
+                if (Array.isArray(payload)) {
+                  items = payload;
+                } else if (payload && payload.id) {
+                  const idx = items.findIndex((i: any) => i.id === payload.id);
+                  if (idx >= 0) {
+                    items[idx] = { ...items[idx], ...payload };
+                  } else {
+                    items.unshift(payload);
+                  }
+                }
+                writePortfolio(items);
                 res.end(JSON.stringify({ success: true, count: items.length }));
                 return;
               }

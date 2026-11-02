@@ -1,10 +1,15 @@
 // Vercel Serverless Function: /api/bookings
-// Manages permanent cloud bookings storage across all browsers, devices, and sessions.
+// Manages high-performance asynchronous cloud bookings storage across all browsers, devices, and sessions.
 
 const https = require('https');
 
 const EXTENDSCLASS_BIN = 'https://extendsclass.com/api/json-storage/bin/daaceac';
 const NTFY_URL = 'https://ntfy.sh/paul_photo_bks_sync_v2';
+
+// In-memory cache & index to prevent external API locking & delays
+let memoryBookings = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 10000; // 10s TTL cache
 
 function httpRequest(url, options = {}, data = null) {
   return new Promise((resolve, reject) => {
@@ -53,6 +58,20 @@ async function getCloudBookings() {
   return [];
 }
 
+async function getCachedBookings() {
+  const now = Date.now();
+  if (memoryBookings && (now - lastCacheTime) < CACHE_TTL_MS) {
+    return memoryBookings;
+  }
+  const cloud = await getCloudBookings();
+  if (cloud && cloud.length > 0) {
+    memoryBookings = cloud;
+    lastCacheTime = now;
+    return memoryBookings;
+  }
+  return memoryBookings || [];
+}
+
 async function saveCloudBookings(bookings) {
   try {
     const payload = JSON.stringify({ bookings, updatedAt: new Date().toISOString() });
@@ -85,7 +104,7 @@ async function notifyNtfy(event, booking) {
 }
 
 module.exports = async (req, res) => {
-  // CORS Headers
+  // CORS & No-Cache Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -95,9 +114,9 @@ module.exports = async (req, res) => {
     return res.status(204).end();
   }
 
-  // 1. GET: Return all bookings
+  // 1. GET: Return bookings (fast cached response)
   if (req.method === 'GET') {
-    const bookings = await getCloudBookings();
+    const bookings = await getCachedBookings();
     return res.status(200).json(bookings);
   }
 
@@ -109,7 +128,7 @@ module.exports = async (req, res) => {
     body = {};
   }
 
-  // 2. POST: Create or upsert booking
+  // 2. POST: Create order with immediate 202 Accepted & asynchronous background write
   if (req.method === 'POST') {
     const newBooking = body;
     if (!newBooking || !newBooking.name) {
@@ -126,50 +145,88 @@ module.exports = async (req, res) => {
       newBooking.createdAt = new Date().toISOString();
     }
 
-    const bookings = await getCloudBookings();
-    const existingIdx = bookings.findIndex((b) => b.id === newBooking.id);
-    if (existingIdx !== -1) {
-      bookings[existingIdx] = { ...bookings[existingIdx], ...newBooking };
-    } else {
-      bookings.unshift(newBooking);
+    // Fast in-memory update with ID deduplication
+    if (!memoryBookings) {
+      memoryBookings = [];
     }
+    const existingIdx = memoryBookings.findIndex((b) => b.id === newBooking.id);
+    if (existingIdx !== -1) {
+      memoryBookings[existingIdx] = { ...memoryBookings[existingIdx], ...newBooking };
+    } else {
+      memoryBookings.unshift(newBooking);
+    }
+    lastCacheTime = Date.now();
 
-    await saveCloudBookings(bookings);
-    await notifyNtfy('created', newBooking);
+    // Asynchronous background persistence & lightweight webhook dispatch (non-blocking)
+    setImmediate(async () => {
+      try {
+        const cloudBookings = await getCloudBookings();
+        const idx = cloudBookings.findIndex((b) => b.id === newBooking.id);
+        if (idx !== -1) {
+          cloudBookings[idx] = { ...cloudBookings[idx], ...newBooking };
+        } else {
+          cloudBookings.unshift(newBooking);
+        }
+        await saveCloudBookings(cloudBookings);
+        await notifyNtfy('created', newBooking);
+      } catch (err) {
+        console.warn('[Background Worker] Async booking save failed:', err.message);
+      }
+    });
 
-    return res.status(200).json({ success: true, booking: newBooking, bookings });
+    // Immediate 202 Accepted with lean payload
+    return res.status(202).json({
+      success: true,
+      id: newBooking.id,
+      status: 'accepted',
+      createdAt: newBooking.createdAt,
+    });
   }
 
-  // 3. PUT: Update status or details
+  // 3. PUT: Update status or details with async persistence
   if (req.method === 'PUT') {
     const bookingId = (req.query && req.query.id) || body.id;
     if (!bookingId) {
       return res.status(400).json({ error: 'Booking ID is required' });
     }
 
-    const bookings = await getCloudBookings();
+    if (!memoryBookings) memoryBookings = await getCloudBookings();
     let updatedBooking = null;
 
-    for (let i = 0; i < bookings.length; i++) {
-      if (bookings[i].id === bookingId) {
-        bookings[i] = { ...bookings[i], ...body };
+    for (let i = 0; i < memoryBookings.length; i++) {
+      if (memoryBookings[i].id === bookingId) {
+        memoryBookings[i] = { ...memoryBookings[i], ...body };
         if (body.status === 'confirmed' || body.adminApproved) {
-          bookings[i].adminApproved = true;
-          bookings[i].adminApprovedAt = bookings[i].adminApprovedAt || new Date().toISOString();
+          memoryBookings[i].adminApproved = true;
+          memoryBookings[i].adminApprovedAt = memoryBookings[i].adminApprovedAt || new Date().toISOString();
         }
-        updatedBooking = bookings[i];
+        updatedBooking = memoryBookings[i];
         break;
       }
     }
 
     if (!updatedBooking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      updatedBooking = { id: bookingId, ...body };
+      memoryBookings.unshift(updatedBooking);
     }
+    lastCacheTime = Date.now();
 
-    await saveCloudBookings(bookings);
-    await notifyNtfy(updatedBooking.status || 'updated', updatedBooking);
+    // Async background sync
+    setImmediate(async () => {
+      try {
+        const cloudBookings = await getCloudBookings();
+        const idx = cloudBookings.findIndex((b) => b.id === bookingId);
+        if (idx !== -1) {
+          cloudBookings[idx] = { ...cloudBookings[idx], ...body };
+        } else {
+          cloudBookings.unshift(updatedBooking);
+        }
+        await saveCloudBookings(cloudBookings);
+        await notifyNtfy(updatedBooking.status || 'updated', updatedBooking);
+      } catch (_) {}
+    });
 
-    return res.status(200).json({ success: true, booking: updatedBooking, bookings });
+    return res.status(200).json({ success: true, id: bookingId, status: 'updated' });
   }
 
   // 4. DELETE: Remove booking
@@ -179,13 +236,21 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Booking ID is required' });
     }
 
-    let bookings = await getCloudBookings();
-    bookings = bookings.filter((b) => b.id !== bookingId);
+    if (memoryBookings) {
+      memoryBookings = memoryBookings.filter((b) => b.id !== bookingId);
+      lastCacheTime = Date.now();
+    }
 
-    await saveCloudBookings(bookings);
-    await notifyNtfy('deleted', { id: bookingId });
+    setImmediate(async () => {
+      try {
+        let bookings = await getCloudBookings();
+        bookings = bookings.filter((b) => b.id !== bookingId);
+        await saveCloudBookings(bookings);
+        await notifyNtfy('deleted', { id: bookingId });
+      } catch (_) {}
+    });
 
-    return res.status(200).json({ success: true, id: bookingId, bookings });
+    return res.status(200).json({ success: true, id: bookingId, status: 'deleted' });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

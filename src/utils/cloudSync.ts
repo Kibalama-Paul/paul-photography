@@ -305,10 +305,17 @@ export async function broadcastGalleryToCloud(
 
     state.updatedAt = new Date().toISOString();
 
-    // Broadcast full gallery state directly to topic so all devices get the payload instantly
+    // 1. Persist to local / backend API
+    fetch('/api/gallery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.customItems || []),
+    }).catch(() => {});
+
+    // 2. Broadcast lightweight cache-invalidation webhook (< 200 bytes) so all devices refresh immediately
     broadcastToTopic(
       SYNC_TOPIC_GALLERY,
-      { event: 'gallery_update', ...state, timestamp: Date.now() },
+      { event: 'gallery_invalidated', timestamp: Date.now() },
       'Gallery Updated'
     ).catch(() => {});
 
@@ -320,6 +327,26 @@ export async function broadcastGalleryToCloud(
 }
 
 export async function fetchGalleryFromCloud(): Promise<GalleryCloudState | null> {
+  // 1. Try local/backend API /api/gallery with no-store
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+    const res = await fetch('/api/gallery', { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const items = await res.json();
+      if (Array.isArray(items) && items.length > 0) {
+        return {
+          customItems: items,
+          deletedIds: [],
+          editedItems: {},
+          featuredIds: items.filter((i: any) => i.isFeatured).map((i: any) => i.id),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    }
+  } catch (_) {}
+
   try {
     const data = await readCloudBin<GalleryCloudState>(BIN_GALLERY);
     if (data && typeof data === 'object') {
@@ -348,16 +375,18 @@ export async function fetchGalleryFromCloud(): Promise<GalleryCloudState | null>
 }
 
 export function subscribeToGalleryUpdates(onUpdate: (state?: GalleryCloudState) => void): () => void {
-  return subscribeToUpdates<any>(SYNC_TOPIC_GALLERY, (payload) => {
-    if (payload && (payload.customItems || payload.deletedIds || payload.featuredIds)) {
+  return subscribeToUpdates<any>(SYNC_TOPIC_GALLERY, async (payload) => {
+    // If payload contains direct state, use it; otherwise fetch fresh state via invalidation
+    let cloudState = payload && payload.customItems ? (payload as GalleryCloudState) : await fetchGalleryFromCloud();
+    if (cloudState && (cloudState.customItems || cloudState.deletedIds || cloudState.featuredIds)) {
       const localDeleted: number[] = JSON.parse(localStorage.getItem('paul_deleted_gallery_ids') || '[]');
-      const mergedDeleted = [...new Set([...(payload.deletedIds || []), ...localDeleted])];
+      const mergedDeleted = [...new Set([...(cloudState.deletedIds || []), ...localDeleted])];
       localStorage.setItem('paul_deleted_gallery_ids', JSON.stringify(mergedDeleted));
       const deletedSet = new Set(mergedDeleted);
 
-      if (Array.isArray(payload.customItems)) {
+      if (Array.isArray(cloudState.customItems)) {
         const localCustom: GalleryItem[] = JSON.parse(localStorage.getItem('paul_custom_gallery') || '[]');
-        const safeCloud = payload.customItems.filter((i: any) => !deletedSet.has(i.id));
+        const safeCloud = cloudState.customItems.filter((i: any) => !deletedSet.has(i.id));
         const safeLocal = localCustom.filter((i: any) => !deletedSet.has(i.id));
         const byId = new Map<number, GalleryItem>();
         for (const item of safeCloud) byId.set(item.id, item);
@@ -367,17 +396,17 @@ export function subscribeToGalleryUpdates(onUpdate: (state?: GalleryCloudState) 
         localStorage.setItem('paul_custom_gallery', JSON.stringify(Array.from(byId.values())));
       }
 
-      if (payload.editedItems && typeof payload.editedItems === 'object') {
+      if (cloudState.editedItems && typeof cloudState.editedItems === 'object') {
         const localEdited = JSON.parse(localStorage.getItem('paul_edited_gallery_items') || '{}');
-        localStorage.setItem('paul_edited_gallery_items', JSON.stringify({ ...localEdited, ...payload.editedItems }));
+        localStorage.setItem('paul_edited_gallery_items', JSON.stringify({ ...localEdited, ...cloudState.editedItems }));
       }
 
-      if (Array.isArray(payload.featuredIds)) {
-        localStorage.setItem('paul_featured_gallery_ids', JSON.stringify(payload.featuredIds));
+      if (Array.isArray(cloudState.featuredIds)) {
+        localStorage.setItem('paul_featured_gallery_ids', JSON.stringify(cloudState.featuredIds));
       }
 
       window.dispatchEvent(new CustomEvent('paul_gallery_updated', { detail: { type: 'realtime_push' } }));
-      onUpdate(payload);
+      onUpdate(cloudState);
     } else {
       onUpdate();
     }
@@ -389,14 +418,21 @@ export function subscribeToGalleryUpdates(onUpdate: (state?: GalleryCloudState) 
 // ────────────────────────────────────────────────────────────────────
 export async function broadcastPortfolioToCloud(items: PortfolioMediaItem[]): Promise<boolean> {
   try {
-    // 1. Broadcast the actual items payload directly over the real-time push topic
+    // 1. Persist to local/backend API
+    fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items),
+    }).catch(() => {});
+
+    // 2. Broadcast lightweight cache-invalidation webhook (< 200 bytes)
     broadcastToTopic(
       SYNC_TOPIC_PORTFOLIO,
-      { event: 'portfolio_update', items, timestamp: Date.now() },
+      { event: 'portfolio_invalidated', count: items.length, timestamp: Date.now() },
       'Portfolio Updated'
     ).catch(() => {});
 
-    // 2. Persist to cloud bin in background
+    // 3. Persist to cloud bin in background
     writeCloudBin(BIN_PORTFOLIO, { items, updatedAt: new Date().toISOString() }).catch(() => {});
     return true;
   } catch {
@@ -405,6 +441,21 @@ export async function broadcastPortfolioToCloud(items: PortfolioMediaItem[]): Pr
 }
 
 export async function fetchPortfolioFromCloud(): Promise<PortfolioMediaItem[] | null> {
+  // 1. Try local/backend API with no-store
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+    const res = await fetch('/api/portfolio', { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const items = await res.json();
+      if (Array.isArray(items) && items.length > 0) {
+        return items;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Try cloud bin
   try {
     const data = await readCloudBin<{ items: PortfolioMediaItem[] }>(BIN_PORTFOLIO);
     if (data && Array.isArray(data.items) && data.items.length > 0) {
@@ -424,8 +475,11 @@ export async function fetchPortfolioFromCloud(): Promise<PortfolioMediaItem[] | 
 }
 
 export function subscribeToPortfolioUpdates(onUpdate: (items?: PortfolioMediaItem[]) => void): () => void {
-  return subscribeToUpdates<any>(SYNC_TOPIC_PORTFOLIO, (payload) => {
-    const items = Array.isArray(payload) ? payload : payload?.items;
+  return subscribeToUpdates<any>(SYNC_TOPIC_PORTFOLIO, async (payload) => {
+    let items = Array.isArray(payload) ? payload : payload?.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      items = (await fetchPortfolioFromCloud()) || undefined;
+    }
     if (Array.isArray(items) && items.length > 0) {
       localStorage.setItem('paul_portfolio_media', JSON.stringify(items));
       window.dispatchEvent(new Event('paul_portfolio_media_updated'));

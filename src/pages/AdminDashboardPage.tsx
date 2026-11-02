@@ -10,7 +10,7 @@ import {
   addPortfolioMedia, updatePortfolioMedia, deletePortfolioMedia,
   reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
 } from '../utils/portfolioMediaStore';
-import { bookingToReceiptData, printReceipt, downloadReceiptHTML, ReceiptData } from '../utils/receiptGenerator';
+import { bookingToReceiptData, printReceipt, ReceiptData } from '../utils/receiptGenerator';
 import { fetchAllBookings, approveBookingInCloud, updateBookingStatusInCloud, deleteBookingFromCloud, subscribeToBookingsUpdates, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
 import { VisitorRecord, fetchAllVisitors, subscribeToLiveVisitors } from '../utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -148,8 +148,33 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const bookingPoll = setInterval(loadBookings, 5000);
 
     // Instant SSE real-time listener: triggers whenever a client or admin books/approves on any device/IP
-    const unsubBookings = subscribeToBookingsUpdates(() => {
-      loadBookings();
+    const unsubBookings = subscribeToBookingsUpdates((incomingBooking) => {
+      if (incomingBooking && incomingBooking.id) {
+        setBookings((prev) => {
+          const exists = prev.some((b) => b.id === incomingBooking.id);
+          if (exists) {
+            return prev.map((b) => (b.id === incomingBooking.id ? { ...b, ...incomingBooking } : b));
+          }
+          return [incomingBooking, ...prev];
+        });
+      } else {
+        loadBookings();
+      }
+    }, (approval) => {
+      if (approval && approval.id) {
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === approval.id
+              ? {
+                  ...b,
+                  status: (approval.status as any) || b.status,
+                  adminApproved: approval.adminApproved ?? b.adminApproved,
+                  adminApprovedAt: approval.adminApprovedAt || b.adminApprovedAt,
+                }
+              : b
+          )
+        );
+      }
     });
 
     const handleGalleryUpdate = () => setGalleryItems(getGalleryItems());
@@ -1223,8 +1248,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               </div>
             ))}
           </div>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
+    )}
 
       {/* ---------------------------------------------------- */}
       {/* EDIT PHOTO MODAL */}
@@ -1643,15 +1669,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                         <span>Print</span>
                       </button>
 
-                      <button
-                        onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
-                        className="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                        title="Download receipt as HTML file"
-                      >
-                        <FileDown className="w-3.5 h-3.5" />
-                        <span>Receipt</span>
-                      </button>
-
                       <a
                         href={`https://wa.me/${(b.phone || '256757460297').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${b.name}, this is Kibalama Paul regarding your photoshoot booking ref ${b.id}.`)}`}
                         target="_blank"
@@ -1858,18 +1875,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <Printer className="w-4 h-4" />
                 <span>Print / Save as PDF</span>
               </button>
-              <button
-                onClick={() => {
-                  if (!rb.clientName || !rb.shootType || !rb.amountPaid) {
-                    alert('Please fill in Client Name, Service, and Amount Paid.');
-                    return;
-                  }
-                  downloadReceiptHTML(rb);
-                }}
-                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-indigo-900/30">
-                <FileDown className="w-4 h-4" />
-                <span>Download as HTML</span>
-              </button>
               <button type="button" onClick={resetRb}
                 className="px-5 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer border border-white/10 transition-all">
                 <RefreshCw className="w-4 h-4" />
@@ -1898,11 +1903,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <div className="flex gap-2">
                       <button onClick={() => printReceipt(bookingToReceiptData(b))}
                         className="px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
-                        <Printer className="w-3 h-3" /> Print
-                      </button>
-                      <button onClick={() => downloadReceiptHTML(bookingToReceiptData(b))}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
-                        <FileDown className="w-3 h-3" /> Download
+                        <Printer className="w-3 h-3" /> Print / PDF
                       </button>
                       <button onClick={() => { setRb(bookingToReceiptData(b)); }}
                         className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
