@@ -84,6 +84,24 @@ const DEFAULT_PORTFOLIO: PortfolioMediaItem[] = [
   },
 ];
 
+import rawCards from '../data/galleryData.json';
+
+// Get base portfolio media items from galleryData.json or fallback
+const getBasePortfolio = (): PortfolioMediaItem[] => {
+  try {
+    if (
+      rawCards &&
+      typeof rawCards === 'object' &&
+      !Array.isArray(rawCards) &&
+      Array.isArray((rawCards as any).portfolio) &&
+      (rawCards as any).portfolio.length > 0
+    ) {
+      return (rawCards as any).portfolio as PortfolioMediaItem[];
+    }
+  } catch {}
+  return [...DEFAULT_PORTFOLIO, ...DEFAULT_CEO_REEL];
+};
+
 /**
  * Get all portfolio media items. Merges defaults with any custom items stored in localStorage.
  */
@@ -91,15 +109,18 @@ export const getPortfolioMedia = (): PortfolioMediaItem[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw) as PortfolioMediaItem[];
+      const parsed = JSON.parse(raw) as PortfolioMediaItem[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
-    // First load — seed with defaults
-    const defaults = [...DEFAULT_PORTFOLIO, ...DEFAULT_CEO_REEL];
+    // First load — seed with base items from galleryData.json or defaults
+    const defaults = getBasePortfolio();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
     return defaults;
   } catch (e) {
     console.error('Error reading portfolio media:', e);
-    return [...DEFAULT_PORTFOLIO, ...DEFAULT_CEO_REEL];
+    return getBasePortfolio();
   }
 };
 
@@ -193,10 +214,20 @@ export const reorderPortfolioMedia = (id: string, direction: 'up' | 'down'): voi
  * Reset portfolio media to defaults.
  */
 export const resetPortfolioMedia = (): void => {
-  const defaults = [...DEFAULT_PORTFOLIO, ...DEFAULT_CEO_REEL];
+  const defaults = getBasePortfolio();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
   window.dispatchEvent(new Event(EVENT_NAME));
   broadcastPortfolioToCloud(defaults).catch(() => {});
+};
+
+/**
+ * Apply imported portfolio items (e.g. from galleryData.json).
+ */
+export const applyImportedPortfolio = (items: PortfolioMediaItem[]): void => {
+  if (!Array.isArray(items) || items.length === 0) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  window.dispatchEvent(new Event(EVENT_NAME));
+  broadcastPortfolioToCloud(items).catch(() => {});
 };
 
 export const PORTFOLIO_MEDIA_EVENT = EVENT_NAME;

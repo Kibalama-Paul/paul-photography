@@ -169,7 +169,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {sampleCards.map((card) => {
+            {sampleCards.slice(0, 4).map((card) => {
               const isFlipped = flippedCards[card.id] || false;
               return (
                 <div

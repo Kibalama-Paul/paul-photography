@@ -47,16 +47,46 @@ def write_bookings(bookings):
     return write_json_file(BOOKINGS_FILE, bookings)
 
 def read_gallery():
-    return read_json_file(GALLERY_FILE)
+    raw = read_json_file(GALLERY_FILE)
+    if isinstance(raw, dict) and 'gallery' in raw:
+        return raw['gallery']
+    return raw if isinstance(raw, list) else []
 
 def write_gallery(items):
+    existing = read_json_file(GALLERY_FILE)
+    if isinstance(existing, dict) and 'portfolio' in existing:
+        unified = {
+            'gallery': items,
+            'portfolio': existing['portfolio'],
+            'updatedAt': datetime.now().isoformat()
+        }
+        return write_json_file(GALLERY_FILE, unified)
     return write_json_file(GALLERY_FILE, items)
 
 def read_portfolio():
-    return read_json_file(PORTFOLIO_FILE)
+    raw_p = read_json_file(PORTFOLIO_FILE)
+    if isinstance(raw_p, list) and len(raw_p) > 0:
+        return raw_p
+    existing = read_json_file(GALLERY_FILE)
+    if isinstance(existing, dict) and 'portfolio' in existing:
+        return existing['portfolio']
+    return raw_p if isinstance(raw_p, list) else []
 
 def write_portfolio(items):
-    return write_json_file(PORTFOLIO_FILE, items)
+    write_json_file(PORTFOLIO_FILE, items)
+    existing = read_json_file(GALLERY_FILE)
+    if isinstance(existing, dict):
+        existing['portfolio'] = items
+        existing['updatedAt'] = datetime.now().isoformat()
+        write_json_file(GALLERY_FILE, existing)
+    elif isinstance(existing, list):
+        unified = {
+            'gallery': existing,
+            'portfolio': items,
+            'updatedAt': datetime.now().isoformat()
+        }
+        write_json_file(GALLERY_FILE, unified)
+    return True
 
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -215,6 +245,28 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
                 self._set_cors_headers()
                 self.end_headers()
                 self.wfile.write(res)
+                return
+
+        # Gallery Export All (Full backup of Gallery and Portfolio)
+        if req_path == '/api/gallery/export-all':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                payload = json.loads(body)
+                write_json_file(GALLERY_FILE, payload)
+                if isinstance(payload, dict) and 'portfolio' in payload and isinstance(payload['portfolio'], list):
+                    write_json_file(PORTFOLIO_FILE, payload['portfolio'])
+                res = json.dumps({'success': True, 'count': len(payload.get('gallery', [])) if isinstance(payload, dict) else 0}).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(res)
+                return
+            except Exception as e:
+                self.send_response(400)
+                self._set_cors_headers()
+                self.end_headers()
                 return
 
         # Gallery Add / Update

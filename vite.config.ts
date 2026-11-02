@@ -35,7 +35,9 @@ function paulDevApiPlugin() {
   const readGallery = () => {
     try {
       if (fs.existsSync(galleryFile)) {
-        return JSON.parse(fs.readFileSync(galleryFile, 'utf-8') || '[]');
+        const raw = JSON.parse(fs.readFileSync(galleryFile, 'utf-8') || '[]');
+        if (Array.isArray(raw)) return raw;
+        if (raw && typeof raw === 'object' && Array.isArray(raw.gallery)) return raw.gallery;
       }
     } catch {}
     return [];
@@ -43,7 +45,20 @@ function paulDevApiPlugin() {
 
   const writeGallery = (data: any) => {
     try {
-      fs.writeFileSync(galleryFile, JSON.stringify(data, null, 2), 'utf-8');
+      let finalData = data;
+      if (Array.isArray(data) && fs.existsSync(galleryFile)) {
+        try {
+          const existing = JSON.parse(fs.readFileSync(galleryFile, 'utf-8') || '{}');
+          if (existing && typeof existing === 'object' && !Array.isArray(existing) && existing.portfolio) {
+            finalData = {
+              gallery: data,
+              portfolio: existing.portfolio,
+              updatedAt: new Date().toISOString()
+            };
+          }
+        } catch {}
+      }
+      fs.writeFileSync(galleryFile, JSON.stringify(finalData, null, 2), 'utf-8');
     } catch (e) {
       console.warn('[Vite API] Could not write gallery file:', e);
     }
@@ -52,7 +67,12 @@ function paulDevApiPlugin() {
   const readPortfolio = () => {
     try {
       if (fs.existsSync(portfolioFile)) {
-        return JSON.parse(fs.readFileSync(portfolioFile, 'utf-8') || '[]');
+        const p = JSON.parse(fs.readFileSync(portfolioFile, 'utf-8') || '[]');
+        if (Array.isArray(p) && p.length > 0) return p;
+      }
+      if (fs.existsSync(galleryFile)) {
+        const raw = JSON.parse(fs.readFileSync(galleryFile, 'utf-8') || '{}');
+        if (raw && typeof raw === 'object' && Array.isArray(raw.portfolio)) return raw.portfolio;
       }
     } catch {}
     return [];
@@ -61,6 +81,18 @@ function paulDevApiPlugin() {
   const writePortfolio = (data: any) => {
     try {
       fs.writeFileSync(portfolioFile, JSON.stringify(data, null, 2), 'utf-8');
+      if (fs.existsSync(galleryFile)) {
+        try {
+          const existing = JSON.parse(fs.readFileSync(galleryFile, 'utf-8') || '[]');
+          const galleryPart = Array.isArray(existing) ? existing : (existing?.gallery || []);
+          const unified = {
+            gallery: galleryPart,
+            portfolio: data,
+            updatedAt: new Date().toISOString()
+          };
+          fs.writeFileSync(galleryFile, JSON.stringify(unified, null, 2), 'utf-8');
+        } catch {}
+      }
     } catch (e) {
       console.warn('[Vite API] Could not write portfolio file:', e);
     }
@@ -168,7 +200,7 @@ function paulDevApiPlugin() {
         }
 
         // 2. Gallery API
-        if (url === '/api/gallery' || url === '/api/gallery/delete' || url === '/api/gallery/featured') {
+        if (url === '/api/gallery' || url === '/api/gallery/delete' || url === '/api/gallery/featured' || url === '/api/gallery/export-all') {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -191,8 +223,19 @@ function paulDevApiPlugin() {
           req.on('data', (chunk: any) => (body += chunk));
           req.on('end', () => {
             try {
-              let items = readGallery();
               const payload = body ? JSON.parse(body) : {};
+
+              // Export all gallery & portfolio items to file
+              if (url === '/api/gallery/export-all' && req.method === 'POST') {
+                fs.writeFileSync(galleryFile, JSON.stringify(payload, null, 2), 'utf-8');
+                if (Array.isArray(payload.portfolio)) {
+                  fs.writeFileSync(portfolioFile, JSON.stringify(payload.portfolio, null, 2), 'utf-8');
+                }
+                res.end(JSON.stringify({ success: true, count: payload.gallery?.length || 0 }));
+                return;
+              }
+
+              let items = readGallery();
 
               // Delete item
               if (url === '/api/gallery/delete' || req.method === 'DELETE') {

@@ -182,7 +182,7 @@ export const getFeaturedGalleryItems = (): GalleryItem[] => {
   const featured = allItems.filter((item) => item.isFeatured);
 
   if (featured.length >= 4) {
-    return featured.slice(0, 8); // Display up to 8 top favorite flip cards
+    return featured.slice(0, 4); // Display strictly 4 top favorite flip cards
   }
 
   // Fill up to 4 items with non-featured items if fewer than 4 items are explicitly starred
@@ -488,4 +488,19 @@ export const syncGalleryFromCloud = async (): Promise<void> => {
   } catch (e) {
     console.error('Error syncing gallery from cloud:', e);
   }
+};
+
+/**
+ * Replace local gallery items with an imported dataset (e.g. from galleryData.json).
+ */
+export const applyImportedGallery = (items: GalleryItem[]): void => {
+  if (!Array.isArray(items) || items.length === 0) return;
+  const clean = deduplicateItems(items).filter((i) => i.frontImg && i.id !== 3);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+  localStorage.removeItem(DELETED_KEY);
+  localStorage.removeItem(EDITED_KEY);
+  const featuredIds = clean.filter((i) => i.isFeatured).map((i) => i.id);
+  localStorage.setItem(FEATURED_KEY, JSON.stringify(featuredIds));
+  broadcastCurrentGallery();
+  window.dispatchEvent(new CustomEvent('paul_gallery_updated', { detail: { type: 'imported' } }));
 };

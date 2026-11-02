@@ -3,12 +3,13 @@ import { PageRoute, GalleryItem, BookingSubmission, PortfolioMediaItem } from '.
 import {
   getGalleryItems, addGalleryItem, updateGalleryItem,
   toggleFeaturedGalleryItem, deleteGalleryItem, resetGallery,
-  deduplicateGallery, deduplicateItems
+  deduplicateGallery, deduplicateItems, applyImportedGallery
 } from '../utils/galleryStore';
 import {
   getPortfolioMedia, getPortfolioMediaBySection,
   addPortfolioMedia, updatePortfolioMedia, deletePortfolioMedia,
-  reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT
+  reorderPortfolioMedia, resetPortfolioMedia, PORTFOLIO_MEDIA_EVENT,
+  applyImportedPortfolio
 } from '../utils/portfolioMediaStore';
 import { bookingToReceiptData, printReceipt, ReceiptData } from '../utils/receiptGenerator';
 import { fetchAllBookings, approveBookingInCloud, updateBookingStatusInCloud, deleteBookingFromCloud, subscribeToBookingsUpdates, uploadToCloudinary, getCloudinaryPreset, setCloudinaryPreset } from '../utils/cloudSync';
@@ -503,8 +504,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Export JSON Backup for Vercel & GitHub deployment (Guaranteed deduplicated)
-  const handleExportJSON = () => {
+  // Helper to build the unified dataset containing ALL gallery items and ALL portfolio/video items
+  const getFullExportPayload = () => {
     const cleanItems = deduplicateItems(galleryItems).map((item) => ({
       id: item.id,
       frontImg: item.frontImg,
@@ -513,27 +514,75 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       category: item.category,
       isFeatured: !!item.isFeatured
     }));
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanItems, null, 2));
+    const cleanPortfolio = getPortfolioMedia();
+    return {
+      gallery: cleanItems,
+      portfolio: cleanPortfolio,
+      exportedAt: new Date().toISOString()
+    };
+  };
+
+  // Export JSON Backup for Vercel & GitHub deployment (Contains both Gallery & Portfolio items)
+  const handleExportJSON = () => {
+    const fullPayload = getFullExportPayload();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullPayload, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
     downloadAnchor.setAttribute("download", "galleryData.json");
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+
+    // In local dev, also automatically persist to src/data/galleryData.json on server
+    fetch('/api/gallery/export-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fullPayload),
+    }).catch(() => {});
   };
 
   const handleCopyJSON = () => {
-    const cleanItems = deduplicateItems(galleryItems).map((item) => ({
-      id: item.id,
-      frontImg: item.frontImg,
-      backImg: item.backImg || item.frontImg,
-      title: item.title,
-      category: item.category,
-      isFeatured: !!item.isFeatured
-    }));
-    navigator.clipboard.writeText(JSON.stringify(cleanItems, null, 2));
+    const fullPayload = getFullExportPayload();
+    navigator.clipboard.writeText(JSON.stringify(fullPayload, null, 2));
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 3000);
+  };
+
+  // Import JSON file into dashboard
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+        let galleryCount = 0;
+        let portfolioCount = 0;
+
+        if (Array.isArray(parsed)) {
+          applyImportedGallery(parsed);
+          setGalleryItems(getGalleryItems());
+          galleryCount = parsed.length;
+        } else if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.gallery)) {
+            applyImportedGallery(parsed.gallery);
+            setGalleryItems(getGalleryItems());
+            galleryCount = parsed.gallery.length;
+          }
+          if (Array.isArray(parsed.portfolio)) {
+            applyImportedPortfolio(parsed.portfolio);
+            setPortfolioMediaItems(getPortfolioMedia());
+            portfolioCount = parsed.portfolio.length;
+          }
+        }
+        alert(`Successfully imported: ${galleryCount} gallery photos and ${portfolioCount} portfolio/video items!`);
+      } catch (err) {
+        alert('Failed to parse JSON file: ' + String(err));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
 
@@ -981,9 +1030,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Vercel Live Sync</span>
                 </div>
-                <h3 className="text-lg font-extrabold text-white">Publish Gallery Updates to Live Vercel Website</h3>
+                <h3 className="text-lg font-extrabold text-white">Publish All Gallery & Portfolio Updates to Live Vercel Website</h3>
                 <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
-                  Edits made here are saved locally in your browser. To make your new photos visible live on Vercel to <strong>everyone on the internet</strong>, export the updated dataset to <code className="text-cyan-300 bg-black/40 px-1.5 py-0.5 rounded">src/data/galleryData.json</code> and push to GitHub.
+                  Edits made here are saved in your browser & cloud. To make all new gallery photos, portfolio photos, and CEO reel videos visible live on Vercel to <strong>everyone on the internet</strong>, download <code className="text-cyan-300 bg-black/40 px-1.5 py-0.5 rounded">galleryData.json</code> and push to GitHub.
                 </p>
               </div>
 
@@ -1003,6 +1052,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <FileJson className="w-4 h-4 text-cyan-400" />
                   <span>{copiedJson ? 'Copied JSON Code! ✓' : 'Copy JSON Code'}</span>
                 </button>
+
+                <label className="px-3.5 py-2.5 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 hover:text-white text-xs font-bold border border-amber-500/40 flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02]">
+                  <Upload className="w-4 h-4 text-amber-300" />
+                  <span>Import JSON</span>
+                  <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                </label>
 
                 <button
                   onClick={handleDeduplicate}
@@ -1923,6 +1978,46 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ---------------------------------------------------- */}
       {activeTab === 'portfolio-media' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+
+          {/* Vercel & GitHub Live Sync Card */}
+          <div className="p-6 rounded-3xl bg-gradient-to-r from-red-950/40 via-purple-950/40 to-indigo-950/40 border border-purple-500/30 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-[11px] font-bold text-purple-300 uppercase tracking-widest">
+                  <Film className="w-3.5 h-3.5" />
+                  <span>Portfolio & CEO Reel Sync</span>
+                </div>
+                <h3 className="text-lg font-extrabold text-white">Publish Portfolio & Video Updates to Vercel</h3>
+                <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                  Every photo and CEO reel video you add here is saved. To update your live site permanently on Vercel and GitHub, click <strong className="text-white">Download galleryData.json</strong> (which packages all gallery photos AND all portfolio/video media into one single file) and commit it to <code className="text-cyan-300 bg-black/40 px-1.5 py-0.5 rounded">src/data/galleryData.json</code>.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  onClick={handleExportJSON}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download galleryData.json</span>
+                </button>
+
+                <button
+                  onClick={handleCopyJSON}
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 flex items-center gap-2 cursor-pointer transition-all"
+                >
+                  <FileJson className="w-4 h-4 text-cyan-400" />
+                  <span>{copiedJson ? 'Copied JSON Code! ✓' : 'Copy JSON Code'}</span>
+                </button>
+
+                <label className="px-3.5 py-2.5 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 hover:text-white text-xs font-bold border border-amber-500/40 flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02]">
+                  <Upload className="w-4 h-4 text-amber-300" />
+                  <span>Import JSON</span>
+                  <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                </label>
+              </div>
+            </div>
+          </div>
 
           {/* Add New Media Form */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

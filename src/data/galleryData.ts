@@ -1,7 +1,13 @@
 import rawCards from './galleryData.json';
 import { GalleryItem } from '../types';
 
-const rawList = (rawCards as Array<{
+const rawArray = Array.isArray(rawCards)
+  ? rawCards
+  : (rawCards && typeof rawCards === 'object' && Array.isArray((rawCards as any).gallery))
+    ? (rawCards as any).gallery
+    : [];
+
+const rawList = (rawArray as Array<{
   id: number;
   frontImg: string;
   backImg: string;
