@@ -38,7 +38,7 @@
       "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000289/BSP_5579-1_1_n5rwmv.jpg",
       "title": "Studio session",
       "category": "portrait",
-      "isFeatured": false
+      "isFeatured": true
     },
     {
       "id": 123,
@@ -86,7 +86,7 @@
       "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731863/IMG_4873_qnmjsm.jpg",
       "title": "Portraits",
       "category": "portrait",
-      "isFeatured": true
+      "isFeatured": false
     },
     {
       "id": 117,
@@ -1078,5 +1078,5 @@
       "createdAt": "2026-11-18T11:24:20.670Z"
     }
   ],
-  "exportedAt": "2026-11-18T12:23:32.045Z"
+  "exportedAt": "2026-11-18T13:13:22.884Z"
 }
