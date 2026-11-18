@@ -1,9 +1,73 @@
 {
   "gallery": [
     {
+      "id": 128,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000285/BSP_5698_1_hgsdcj.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000283/BSP_5703_1_gei2iu.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 127,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000286/BSP_0041-1_1_suo5uu.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000283/IMG_5198_1_ioylzk.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 126,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000284/BSP_5505-1_1_dr9on5.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000285/BSP_5495_1_jrwz57.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 125,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000288/BSP_5585_1_jmcsvx.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000284/BSP_5435_1_kaxlpo.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 124,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000288/BSP_5451_1_vqzarj.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000289/BSP_5579-1_1_n5rwmv.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 123,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000294/PRIC9601_1_qhksb1.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000284/PRIC9645_1_gm62bp.jpg",
+      "title": "Outdoor session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
+      "id": 122,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000298/BSP_2746_1_ttpbge.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000295/BSP_2741_1_wyfcwy.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": true
+    },
+    {
+      "id": 121,
+      "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000300/BSP_1838_1_uhcmcf.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000298/BSP_1848_1_yyieab.jpg",
+      "title": "Studio session",
+      "category": "portrait",
+      "isFeatured": false
+    },
+    {
       "id": 120,
       "frontImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731867/IMG_4380_3_qrbw0g.jpg",
-      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1791731867/IMG_4380_3_qrbw0g.jpg",
+      "backImg": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000293/8M1A1697_1_wwj0oc.jpg",
       "title": "Studio portrait",
       "category": "portrait",
       "isFeatured": false
@@ -921,7 +985,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/OBI_8725_arcf8s.jpg",
       "title": "Studio Portrait",
       "order": 0,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-2",
@@ -930,7 +994,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_MG_2308_ecpaj0.jpg",
       "title": "Outdoor Session",
       "order": 1,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-3",
@@ -939,7 +1003,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599978/IMG_9943_wdykjr.jpg",
       "title": "Event Coverage",
       "order": 2,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-4",
@@ -948,7 +1012,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599976/_MG_0860_lms0rk.jpg",
       "title": "Creative Direction",
       "order": 3,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-5",
@@ -957,7 +1021,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599977/_PIT9552_zdb4rf.jpg",
       "title": "Fashion Photography",
       "order": 4,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-6",
@@ -966,7 +1030,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599974/IMG_0154_ytjsqi.jpg",
       "title": "Cinematic Portrait",
       "order": 5,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "portfolio-default-7",
@@ -975,7 +1039,7 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1748599975/OBI_8756_rgpico.jpg",
       "title": "Professional Headshot",
       "order": 6,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
     },
     {
       "id": "ceo-reel-default-1",
@@ -984,8 +1048,35 @@
       "url": "https://res.cloudinary.com/dirfcqs1f/video/upload/v1762193474/paulo_fdm1ai.mp4",
       "title": "CEO Portrait Reel",
       "order": 0,
-      "createdAt": "2026-11-02T12:00:00.000Z"
+      "createdAt": "2026-10-31T13:13:41.725Z"
+    },
+    {
+      "type": "image",
+      "section": "portfolio",
+      "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1793098434/IMG_4565_icdw1q.jpg",
+      "title": "Studio session",
+      "id": "portfolio-1793456966307-nzqbk",
+      "order": 7,
+      "createdAt": "2026-10-31T14:29:26.307Z"
+    },
+    {
+      "type": "video",
+      "section": "ceo-reel",
+      "url": "https://res.cloudinary.com/dirfcqs1f/video/upload/v1793098012/paul_photo_bts_dl6x1g.mp4",
+      "title": "Behind the scenes reel",
+      "id": "ceo-reel-1793457095958-727cg",
+      "order": 1,
+      "createdAt": "2026-10-31T14:31:35.958Z"
+    },
+    {
+      "type": "image",
+      "section": "portfolio",
+      "url": "https://res.cloudinary.com/dirfcqs1f/image/upload/v1795000298/BSP_2746_1_ttpbge.jpg",
+      "title": "Studio session",
+      "id": "portfolio-1795001060670-w9k6g",
+      "order": 8,
+      "createdAt": "2026-11-18T11:24:20.670Z"
     }
   ],
-  "updatedAt": "2026-11-02T12:00:00.000Z"
+  "exportedAt": "2026-11-18T12:23:32.045Z"
 }
