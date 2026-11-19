@@ -1,0 +1,6 @@
+{
+  "name": "Paul Photography 256 — Client Proofing",
+  "description": "Production-ready client photo proofing and favorites selection gallery with Google Drive, Google Sheets, and email notification integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

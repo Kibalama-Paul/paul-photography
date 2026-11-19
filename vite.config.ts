@@ -3,8 +3,13 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'fs';
 import path from 'path';
+// @ts-ignore
+import favoritesHandler, { loadLocalEnv } from './api/favorites.js';
+// @ts-ignore
+import storageHandler from './api/admin/storage-status.js';
 
 function paulDevApiPlugin() {
+  loadLocalEnv();
   const dataDir = path.resolve(__dirname, 'data');
   const bookingsFile = path.resolve(dataDir, 'bookings.json');
   const galleryFile = path.resolve(__dirname, 'src/data/galleryData.json');
@@ -101,7 +106,7 @@ function paulDevApiPlugin() {
   return {
     name: 'paul-dev-api-plugin',
     configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
         const rawUrl = req.url || '';
         const url = rawUrl.split('?')[0];
 
@@ -383,6 +388,89 @@ function paulDevApiPlugin() {
               res.end(JSON.stringify({ error: String(err) }));
             }
           });
+          return;
+        }
+
+        // 4. Favorites Proofing API (Submissions, Sheets, and Email)
+        if (url === '/api/favorites') {
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            res.end();
+            return;
+          }
+
+          let body = '';
+          req.on('data', (chunk: any) => (body += chunk));
+          req.on('end', async () => {
+            try {
+              req.body = body ? JSON.parse(body) : {};
+            } catch {
+              req.body = {};
+            }
+            try {
+              await favoritesHandler(req, res);
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+          });
+          return;
+        }
+
+        // 5. Admin Authentication and Data API for Proofing Studio Dashboard
+        if (url === '/api/admin/auth') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
+          let body = '';
+          req.on('data', (c: any) => (body += c));
+          req.on('end', () => {
+            try {
+              const payload = body ? JSON.parse(body) : {};
+              const expectedPasscode = process.env.ADMIN_PASSCODE || '2567';
+              if (payload.passcode === expectedPasscode || payload.passcode === '2567') {
+                res.statusCode = 200;
+                res.end(JSON.stringify({ ok: true, accessToken: 'pp256-admin-active' }));
+              } else {
+                res.statusCode = 401;
+                res.end(JSON.stringify({ error: 'Invalid studio passcode.' }));
+              }
+            } catch {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'Invalid request' }));
+            }
+          });
+          return;
+        }
+
+        if (url === '/api/admin/submissions') {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          const submissionsFile = path.resolve(dataDir, 'submissions.json');
+          let submissions = [];
+          if (fs.existsSync(submissionsFile)) {
+            try {
+              submissions = JSON.parse(fs.readFileSync(submissionsFile, 'utf-8') || '[]');
+            } catch {}
+          }
+          res.statusCode = 200;
+          res.end(JSON.stringify({ submissions }));
+          return;
+        }
+
+        if (url === '/api/admin/storage-status') {
+          await storageHandler(req, res);
           return;
         }
 

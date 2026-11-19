@@ -10,6 +10,7 @@ import { BookingPage } from './pages/BookingPage';
 import { ContactPage } from './pages/ContactPage';
 import { PackagesPage } from './pages/PackagesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { ProofingPage } from './pages/ProofingPage';
 import { initCloudSync, subscribeToGalleryUpdates, subscribeToPortfolioUpdates } from './utils/cloudSync';
 import { syncGalleryFromCloud } from './utils/galleryStore';
 import { syncPortfolioFromCloud } from './utils/portfolioMediaStore';
@@ -17,8 +18,75 @@ import { trackPageView } from './utils/visitorTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 
+function parseRoute(): { page: PageRoute; sessionId?: string; isAdmin?: boolean } {
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  const searchParams = new URLSearchParams(window.location.search);
+
+  // 1. Dedicated Admin routes (/admin-selection and /admin-selction)
+  if (
+    pathname === '/admin-selection' ||
+    pathname.startsWith('/admin-selection/') ||
+    pathname === '/admin-selction' ||
+    pathname.startsWith('/admin-selction/') ||
+    hash === 'admin-selection' ||
+    hash === 'admin-selction'
+  ) {
+    return { page: 'proofing', sessionId: undefined, isAdmin: true };
+  }
+
+  // 2. Client Selection routes (/client-selection and /client-selection/:sessionId)
+  if (
+    pathname === '/client-selection' ||
+    pathname.startsWith('/client-selection/') ||
+    hash === 'client-selection' ||
+    hash.startsWith('client-selection/')
+  ) {
+    const raw = pathname.startsWith('/client-selection') ? pathname : hash;
+    const parts = raw.split('/').filter(Boolean);
+    const sessionId = parts[1] || searchParams.get('session') || searchParams.get('gallery') || undefined;
+    const isAdmin = searchParams.get('admin') === '1';
+    return { page: 'proofing', sessionId, isAdmin };
+  }
+
+  // 3. Backward-compatible /proofing and /proofing/:sessionId route
+  if (pathname === '/proofing' || pathname.startsWith('/proofing/')) {
+    const parts = pathname.split('/').filter(Boolean);
+    const sessionId = parts[1] || searchParams.get('session') || searchParams.get('gallery') || undefined;
+    const isAdmin = searchParams.get('admin') === '1';
+    return { page: 'proofing', sessionId, isAdmin };
+  }
+
+  // 4. Backward-compatible #proofing routes
+  if (hash === 'proofing' || hash.startsWith('proofing/')) {
+    const parts = hash.split('/').filter(Boolean);
+    const sessionId = parts[1] || searchParams.get('session') || searchParams.get('gallery') || undefined;
+    const isAdmin = searchParams.get('admin') === '1';
+    return { page: 'proofing', sessionId, isAdmin };
+  }
+
+  // 5. Standard hash routes
+  if (['home', 'gallery', 'portfolio', 'packages', 'booking', 'contact', 'admin'].includes(hash)) {
+    return { page: hash as PageRoute };
+  }
+
+  // 6. Query parameter fallback
+  if (searchParams.get('gallery')) {
+    return {
+      page: 'proofing',
+      sessionId: searchParams.get('gallery') || undefined,
+      isAdmin: searchParams.get('admin') === '1',
+    };
+  }
+
+  return { page: 'home' };
+}
+
 export const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<PageRoute>('home');
+  const initialRoute = parseRoute();
+  const [currentPage, setCurrentPage] = useState<PageRoute>(initialRoute.page);
+  const [proofingSessionId, setProofingSessionId] = useState<string | undefined>(initialRoute.sessionId);
+  const [isProofingAdmin, setIsProofingAdmin] = useState<boolean>(Boolean(initialRoute.isAdmin));
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   // ── Theme: dark (default) | light ──────────────────────────────
@@ -67,17 +135,21 @@ export const App: React.FC = () => {
     trackPageView(currentPage);
   }, [currentPage]);
 
-  // Sync with URL hash if provided
+  // Sync with URL pathname and hash changes
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['home', 'gallery', 'portfolio', 'packages', 'booking', 'contact', 'admin'].includes(hash)) {
-        setCurrentPage(hash as PageRoute);
-      }
+    const handleRouteChange = () => {
+      const route = parseRoute();
+      setCurrentPage(route.page);
+      setProofingSessionId(route.sessionId);
+      setIsProofingAdmin(Boolean(route.isAdmin));
     };
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    handleRouteChange();
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', handleRouteChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
   }, []);
 
   // Monitor scroll for back to top button
@@ -87,10 +159,13 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('scroll', checkScroll);
   }, []);
 
-
   const handleNavigate = (page: PageRoute) => {
     setCurrentPage(page);
-    window.location.hash = page;
+    if (page === 'proofing') {
+      window.history.pushState({}, '', '/client-selection');
+    } else {
+      window.location.hash = page;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -129,6 +204,7 @@ export const App: React.FC = () => {
             {currentPage === 'booking'   && <BookingPage />}
             {currentPage === 'contact'   && <ContactPage />}
             {currentPage === 'admin'     && <AdminDashboardPage onNavigate={handleNavigate} />}
+            {currentPage === 'proofing'  && <ProofingPage sessionId={proofingSessionId} initialAdmin={isProofingAdmin} onNavigate={handleNavigate} />}
           </motion.div>
         </AnimatePresence>
       </main>

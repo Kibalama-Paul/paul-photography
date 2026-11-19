@@ -1,0 +1,47 @@
+[
+  {
+    "submissionId": "FAV-MWNR8CN4-524D",
+    "timestamp": "2026-11-19T16:18:26.177Z",
+    "status": "new",
+    "loggedToSheets": false,
+    "emailSent": false,
+    "sessionId": "kampala-editorial-2026",
+    "sessionName": "kampala-editorial-2026",
+    "clientName": "Amara",
+    "clientEmail": "amara@example.com",
+    "sessionNotes": "",
+    "selectedPhotos": [
+      {
+        "id": "pp256-001",
+        "filename": "PP256_KLA_001.jpg",
+        "note": ""
+      }
+    ],
+    "submittedAt": "2026-11-19T16:18:26.177Z"
+  },
+  {
+    "submissionId": "FAV-MWNQ00GU-7D2C",
+    "timestamp": "2026-11-19T15:43:57.535Z",
+    "status": "new",
+    "loggedToSheets": false,
+    "emailSent": false,
+    "sessionId": "kampala-editorial-2026",
+    "sessionName": "Golden Hour Wedding & Editorial Session",
+    "clientName": "Sarah & David",
+    "clientEmail": "sarah@example.com",
+    "sessionNotes": "We loved the lighting on the terrace photos!",
+    "selectedPhotos": [
+      {
+        "id": "pp256-001",
+        "filename": "PP256_KLA_001.jpg",
+        "note": "Please crop tighter"
+      },
+      {
+        "id": "pp256-002",
+        "filename": "PP256_KLA_002.jpg",
+        "note": ""
+      }
+    ],
+    "submittedAt": "2026-11-19T15:43:57.535Z"
+  }
+]
