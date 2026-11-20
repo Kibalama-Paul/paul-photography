@@ -175,16 +175,7 @@ export interface StorageStatusResponse {
     freeFormatted?: string;
     usedPercent?: number;
   };
-  r2?: {
-    configured: boolean;
-    connectionValid?: boolean;
-    bucketName?: string;
-    publicUrl?: string;
-    totalObjects?: number;
-    totalSizeBytes?: number;
-    totalSizeFormatted?: string;
-    error?: string | null;
-  };
+  r2?: R2StatusResponse;
   updatedAt: string;
 }
 
@@ -196,5 +187,11 @@ export interface R2StatusResponse {
   totalObjects?: number;
   totalSizeBytes?: number;
   totalSizeFormatted?: string;
+  limitBytes?: number;
+  limitFormatted?: string;
+  freeBytes?: number;
+  freeFormatted?: string;
+  usedPercent?: number;
+  freePercent?: number;
   error?: string | null;
 }

@@ -31,7 +31,7 @@ function writeSubmissions(data) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-passcode');
 
   if (req.method === 'OPTIONS') {
@@ -93,6 +93,35 @@ export default async function handler(req, res) {
       }
     });
     return;
+  }
+
+  if (req.method === 'DELETE' && subId) {
+    const submissions = readSubmissions();
+    const idx = submissions.findIndex((s) => s.submissionId === subId);
+    if (idx >= 0) {
+      const deleted = submissions.splice(idx, 1)[0];
+      writeSubmissions(submissions);
+
+      // Real-time broadcast deletion to all admins
+      try {
+        fetch('https://ntfy.sh/paul_photo_proofing_submissions_256_dirfcqs1f', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'delete', submissionId: subId }),
+          headers: {
+            Title: `Submission Deleted: ${deleted.clientName}`,
+            Tags: 'wastebasket',
+            Cache: 'yes',
+          },
+        }).catch(() => {});
+      } catch (_) {}
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({ ok: true, deleted: subId }));
+    }
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ error: 'Submission not found' }));
   }
 
   res.statusCode = 405;

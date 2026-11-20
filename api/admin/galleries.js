@@ -149,15 +149,13 @@ export function readProofingGalleries() {
     }
     const raw = fs.readFileSync(galleriesFile, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
-    const initial = getInitialSeedGalleries();
-    fs.writeFileSync(galleriesFile, JSON.stringify(initial, null, 2), 'utf-8');
-    return initial;
+    return [];
   } catch (err) {
     console.error('Error reading proofing galleries:', err);
-    return getInitialSeedGalleries();
+    return [];
   }
 }
 
@@ -185,6 +183,15 @@ function readSubmissions() {
     }
   } catch {}
   return [];
+}
+
+function writeSubmissions(data) {
+  try {
+    fs.writeFileSync(submissionsFile, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function verifyPasscode(passcode) {
@@ -427,6 +434,13 @@ export default async function handler(req, res) {
     }
     const deleted = galleries.splice(idx, 1)[0];
     writeProofingGalleries(galleries);
+
+    // Also remove associated client submissions for this gallery
+    const remainingSubs = submissions.filter((s) => s.sessionId !== sessionId);
+    if (remainingSubs.length !== submissions.length) {
+      writeSubmissions(remainingSubs);
+    }
+
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true, deleted: deleted.sessionId }));

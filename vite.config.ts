@@ -483,7 +483,7 @@ function paulDevApiPlugin() {
         if (url === '/api/admin/submissions' || url?.startsWith('/api/admin/submissions/')) {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-passcode');
 
           if (req.method === 'OPTIONS') {
@@ -535,6 +535,28 @@ function paulDevApiPlugin() {
                 res.end(JSON.stringify({ error: 'Invalid request' }));
               }
             });
+            return;
+          }
+
+          if (req.method === 'DELETE' && url?.startsWith('/api/admin/submissions/')) {
+            const subId = url.split('/').pop();
+            const idx = submissions.findIndex((s: any) => s.submissionId === subId);
+            if (idx >= 0) {
+              submissions.splice(idx, 1);
+              fs.writeFileSync(submissionsFile, JSON.stringify(submissions, null, 2), 'utf-8');
+              try {
+                fetch('https://ntfy.sh/paul_photo_proofing_submissions_256_dirfcqs1f', {
+                  method: 'POST',
+                  body: JSON.stringify({ action: 'delete', submissionId: subId }),
+                  headers: { Title: 'Submission Deleted', Tags: 'wastebasket', Cache: 'yes' },
+                }).catch(() => {});
+              } catch (_) {}
+              res.statusCode = 200;
+              res.end(JSON.stringify({ ok: true, deleted: subId }));
+            } else {
+              res.statusCode = 404;
+              res.end(JSON.stringify({ error: 'Submission not found' }));
+            }
             return;
           }
         }

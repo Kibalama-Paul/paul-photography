@@ -35,9 +35,9 @@ const LOCAL_GALLERIES_STORAGE_KEY = 'pp256_client_galleries_cache_v1';
 export function getLocalStoredGalleries(): AdminGalleryRecord[] {
   try {
     const raw = window.localStorage.getItem(LOCAL_GALLERIES_STORAGE_KEY);
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
   return Object.values(MOCK_GALLERY_SESSIONS) as AdminGalleryRecord[];
@@ -370,7 +370,7 @@ export async function adminListGalleries(
     });
     if (res.ok) {
       const data = (await res.json()) as { galleries: AdminGalleryRecord[] };
-      if (Array.isArray(data.galleries) && data.galleries.length > 0) {
+      if (Array.isArray(data.galleries)) {
         setLocalStoredGalleries(data.galleries);
         return data.galleries;
       }
@@ -504,39 +504,68 @@ export async function adminDeleteGallery(
   passcode: string,
   sessionId: string
 ): Promise<void> {
+  const local = getLocalStoredGalleries();
+  setLocalStoredGalleries(local.filter((g) => g.sessionId !== sessionId));
+
   try {
-    await fetch(
+    const res = await fetch(
       `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}`,
       {
         method: 'DELETE',
         headers: adminHeaders(passcode),
       }
     );
-    try {
-      broadcastGalleryChange('delete', { sessionId } as AdminGalleryRecord);
-    } catch (_) {}
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.error || 'Failed to delete gallery on server.');
+    }
   } catch (err) {
-    console.warn('[Admin Galleries] Delete API error, deleting locally:', err);
+    console.warn('[Admin Galleries] Delete API error:', err);
   }
-  const local = getLocalStoredGalleries();
-  setLocalStoredGalleries(local.filter((g) => g.sessionId !== sessionId));
+
+  try {
+    broadcastGalleryChange('delete', { sessionId } as AdminGalleryRecord);
+  } catch (_) {}
+}
+
+export interface UploadProgressInfo {
+  loadedBytes: number;
+  totalBytes: number;
+  percent: number;
+  currentFileIndex: number;
+  totalFiles: number;
+  currentFilename: string;
+  phase: 'preparing' | 'uploading' | 'processing';
 }
 
 export async function adminUploadPhotos(
   passcode: string,
   sessionId: string,
   files: File[],
-  targetSet?: string
+  targetSet?: string,
+  onProgress?: (info: UploadProgressInfo) => void
 ): Promise<{
   gallery: AdminGalleryRecord;
   uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
 }> {
+  const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
   try {
     const formData = new FormData();
     if (targetSet) {
       formData.append('set', targetSet);
     }
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      onProgress?.({
+        loadedBytes: 0,
+        totalBytes,
+        percent: Math.round(((i + 1) / files.length) * 20),
+        currentFileIndex: i + 1,
+        totalFiles: files.length,
+        currentFilename: file.name,
+        phase: 'preparing',
+      });
+
       // 1. Pristine original full-resolution file (for client download)
       formData.append('photos', file, file.name);
 
@@ -555,35 +584,81 @@ export async function adminUploadPhotos(
       }
     }
 
-    const res = await fetch(
-      `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}/photos`,
-      {
-        method: 'POST',
-        headers: {
-          'x-admin-passcode': passcode,
-        },
-        body: formData,
-      }
-    );
-    if (res.ok) {
-      const data = (await res.json()) as {
-        gallery: AdminGalleryRecord;
-        uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
+    onProgress?.({
+      loadedBytes: 0,
+      totalBytes,
+      percent: 25,
+      currentFileIndex: files.length,
+      totalFiles: files.length,
+      currentFilename: files[0]?.name || '',
+      phase: 'uploading',
+    });
+
+    const data = await new Promise<{
+      gallery: AdminGalleryRecord;
+      uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
+    }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        'POST',
+        `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}/photos`
+      );
+      xhr.setRequestHeader('x-admin-passcode', passcode);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const uploadPercent = Math.round(25 + (e.loaded / e.total) * 70);
+          onProgress?.({
+            loadedBytes: e.loaded,
+            totalBytes: e.total,
+            percent: uploadPercent,
+            currentFileIndex: files.length,
+            totalFiles: files.length,
+            currentFilename: `${(e.loaded / (1024 * 1024)).toFixed(1)} MB of ${(e.total / (1024 * 1024)).toFixed(1)} MB`,
+            phase: 'uploading',
+          });
+        }
       };
-      if (data?.gallery) {
-        const local = getLocalStoredGalleries();
-        setLocalStoredGalleries(
-          local.map((g) => (g.sessionId === sessionId ? { ...g, ...data.gallery } : g))
-        );
-        try {
-          broadcastGalleryChange('photos_uploaded', data.gallery);
-        } catch (_) {}
-        return data;
-      }
-    }
-    const err = await res.json().catch(() => null);
-    if (err?.error && !USE_MOCK_DATA) {
-      throw new Error(err.error);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            onProgress?.({
+              loadedBytes: totalBytes,
+              totalBytes,
+              percent: 100,
+              currentFileIndex: files.length,
+              totalFiles: files.length,
+              currentFilename: 'Finishing upload...',
+              phase: 'processing',
+            });
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error('Invalid response from server.'));
+          }
+        } else {
+          try {
+            const err = JSON.parse(xhr.responseText);
+            reject(new Error(err?.error || `Upload failed with status ${xhr.status}`));
+          } catch {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during photo upload.'));
+      xhr.send(formData);
+    });
+
+    if (data?.gallery) {
+      const local = getLocalStoredGalleries();
+      setLocalStoredGalleries(
+        local.map((g) => (g.sessionId === sessionId ? { ...g, ...data.gallery } : g))
+      );
+      try {
+        broadcastGalleryChange('photos_uploaded', data.gallery);
+      } catch (_) {}
+      return data;
     }
   } catch (err) {
     if (!USE_MOCK_DATA) throw err;
@@ -792,6 +867,23 @@ export async function adminUpdateSubmissionStatus(
   }
   const data = (await res.json()) as { submission: StoredSubmissionRecord };
   return data.submission;
+}
+
+export async function adminDeleteSubmission(
+  passcode: string,
+  submissionId: string
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/admin/submissions/${encodeURIComponent(submissionId)}`,
+    {
+      method: 'DELETE',
+      headers: adminHeaders(passcode),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Failed to delete client submission.');
+  }
 }
 
 export async function adminGetStorageStatus(

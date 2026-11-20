@@ -46,6 +46,7 @@ import {
   adminCreateGallery,
   adminDeleteGallery,
   adminDeletePhoto,
+  adminDeleteSubmission,
   adminGetDriveStatus,
   adminGetStorageStatus,
   adminListGalleries,
@@ -59,6 +60,7 @@ import {
   getSavedAdminUser,
   setSavedAdminPasscode,
   setSavedAdminUser,
+  UploadProgressInfo,
   verifyAdminPasscode,
 } from '../services/galleryService';
 import {
@@ -199,7 +201,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [isDeletingSubmission, setIsDeletingSubmission] = useState(false);
 
   // Photographer-only batch export state
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -602,11 +606,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsUploading(true);
     setUploadNotice(null);
     setDataError(null);
+    setUploadProgress({
+      loadedBytes: 0,
+      totalBytes: files.reduce((acc, f) => acc + f.size, 0),
+      percent: 0,
+      currentFileIndex: 0,
+      totalFiles: files.length,
+      currentFilename: files[0]?.name || 'Preparing upload...',
+      phase: 'preparing',
+    });
     try {
       const { gallery: updated, uploadDestination } = await adminUploadPhotos(
         adminPasscode,
         activeGallery.sessionId,
-        files
+        files,
+        undefined,
+        (progress) => setUploadProgress(progress)
       );
       setGalleries((prev) =>
         prev.map((g) =>
@@ -624,6 +639,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setDataError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -778,6 +794,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       );
     } catch (err) {
       setDataError(err instanceof Error ? err.message : 'Status update failed.');
+    }
+  };
+
+  const handleDeleteSubmission = async (
+    submissionId: string,
+    clientName: string
+  ) => {
+    if (!adminPasscode) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete the submission from "${clientName}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setIsDeletingSubmission(true);
+    try {
+      await adminDeleteSubmission(adminPasscode, submissionId);
+      setSubmissions((prev) =>
+        prev.filter((s) => s.submissionId !== submissionId)
+      );
+      if (selectedSubmissionId === submissionId) {
+        setSelectedSubmissionId(null);
+      }
+    } catch (err) {
+      setDataError(
+        err instanceof Error ? err.message : 'Failed to delete submission.'
+      );
+    } finally {
+      setIsDeletingSubmission(false);
     }
   };
 
@@ -1725,6 +1771,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         )}
                       </button>
 
+                      {isUploading && uploadProgress && (
+                        <div className="mt-5 w-full max-w-md rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-left shadow-sm">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-zinc-900 flex items-center gap-2">
+                              <Loader2 size={13} className="animate-spin text-zinc-700" />
+                              {uploadProgress.phase === 'preparing' && 'Preparing Web Previews...'}
+                              {uploadProgress.phase === 'uploading' && 'Uploading to Cloud Storage...'}
+                              {uploadProgress.phase === 'processing' && 'Finalizing Gallery Photos...'}
+                            </span>
+                            <span className="font-mono font-bold text-zinc-950">
+                              {uploadProgress.percent}%
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200">
+                            <div
+                              className="h-full rounded-full bg-zinc-950 transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(0, uploadProgress.percent))}%` }}
+                            />
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+                            <span className="truncate max-w-[240px]" title={uploadProgress.currentFilename}>
+                              {uploadProgress.currentFilename}
+                            </span>
+                            <span className="font-sans">
+                              {uploadProgress.totalFiles > 0
+                                ? `${uploadProgress.totalFiles} item${uploadProgress.totalFiles === 1 ? '' : 's'}`
+                                : ''}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       {uploadNotice && (
                         <p className="mt-3 text-xs font-medium text-emerald-700">
                           {uploadNotice}
@@ -2533,21 +2613,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </div>
 
-                        <select
-                          value={activeSubmission.status}
-                          onChange={(e) =>
-                            handleUpdateStatus(
-                              activeSubmission.submissionId,
-                              e.target.value as SubmissionStatus
-                            )
-                          }
-                          aria-label="Submission status"
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-950"
-                        >
-                          <option value="new">New Submission</option>
-                          <option value="retouching">In Retouching</option>
-                          <option value="delivered">Delivered</option>
-                        </select>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={activeSubmission.status}
+                            onChange={(e) =>
+                              handleUpdateStatus(
+                                activeSubmission.submissionId,
+                                e.target.value as SubmissionStatus
+                              )
+                            }
+                            aria-label="Submission status"
+                            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-950"
+                          >
+                            <option value="new">New Submission</option>
+                            <option value="retouching">In Retouching</option>
+                            <option value="delivered">Delivered</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            disabled={isDeletingSubmission}
+                            onClick={() =>
+                              handleDeleteSubmission(
+                                activeSubmission.submissionId,
+                                activeSubmission.clientName
+                              )
+                            }
+                            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition-colors disabled:opacity-50"
+                            title="Delete this client submission"
+                          >
+                            {isDeletingSubmission ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={13} />
+                            )}
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
 
                       {activeSubmission.sessionNotes && (
@@ -2818,29 +2920,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     {storageStatus.r2?.configured ? (
                       <div className="mt-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                              R2 Bucket Name
+                        <div className="flex items-end justify-between">
+                          <span className="font-mono text-3xl font-bold tabular-nums text-zinc-950">
+                            {storageStatus.r2.usedPercent ?? 0}%
+                          </span>
+                          <span className="text-xs text-zinc-500 font-medium">
+                            {storageStatus.r2.totalSizeFormatted || '0 B'} used of {storageStatus.r2.limitFormatted || '10 GB'} (Free Tier)
+                          </span>
+                        </div>
+
+                        {/* R2 Quota Progress Bar */}
+                        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className="h-full rounded-full transition-all duration-700 bg-orange-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(storageStatus.r2.usedPercent || 0, 1))}%`,
+                            }}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Space Used
                             </p>
-                            <p className="mt-1 font-mono text-sm font-bold text-zinc-950 truncate">
-                              {storageStatus.r2.bucketName || '—'}
+                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-zinc-950">
+                              {storageStatus.r2.totalSizeFormatted || '0 B'}
                             </p>
                           </div>
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                              Stored R2 Objects
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+                              Free Space
                             </p>
-                            <p className="mt-1 font-mono text-lg font-bold text-zinc-950">
+                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-emerald-800">
+                              {storageStatus.r2.freeFormatted || '10 GB'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Stored Objects
+                            </p>
+                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-zinc-950">
                               {storageStatus.r2.totalObjects || 0} photo{(storageStatus.r2.totalObjects || 0) === 1 ? '' : 's'}
                             </p>
                           </div>
-                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
-                              R2 Storage Footprint
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              R2 Bucket
                             </p>
-                            <p className="mt-1 font-mono text-lg font-bold text-emerald-800">
-                              {storageStatus.r2.totalSizeFormatted || '0 B'}
+                            <p className="mt-1 font-mono text-xs font-bold text-zinc-950 truncate" title={storageStatus.r2.bucketName}>
+                              {storageStatus.r2.bucketName || '—'}
                             </p>
                           </div>
                         </div>
