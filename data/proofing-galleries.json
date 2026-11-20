@@ -10,7 +10,7 @@
     "headerStyle": "editorial",
     "defaultLayout": "masonry",
     "coverPhotoId": "pp256-mworltmc-hruv",
-    "allowZipDownload": false,
+    "allowZipDownload": true,
     "instructions": "Select your favorite frames with the heart button for final color grading and retouching. Add per-photo crop or edit notes directly on any frame.",
     "source": "studio",
     "createdAt": "2026-11-14T10:00:00.000Z",
@@ -105,6 +105,6 @@
       }
     ],
     "requiresPasscode": false,
-    "updatedAt": "2026-11-20T10:38:01.723Z"
+    "updatedAt": "2026-11-20T10:39:20.758Z"
   }
 ]
