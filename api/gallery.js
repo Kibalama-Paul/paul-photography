@@ -83,6 +83,22 @@ module.exports = async (req, res) => {
 
   // 1. GET Gallery Items
   if (req.method === 'GET') {
+    // Check if client is requesting a specific client proofing gallery session
+    const fullUrl = req.url || '';
+    const sessionParam = (req.query && req.query.session) || (fullUrl.includes('session=') ? new URL(fullUrl, 'http://localhost').searchParams.get('session') : null);
+    if (sessionParam) {
+      const proofingFile = path.resolve(process.cwd(), 'data/proofing-galleries.json');
+      if (fs.existsSync(proofingFile)) {
+        try {
+          const list = JSON.parse(fs.readFileSync(proofingFile, 'utf-8') || '[]');
+          const matched = list.find((g) => g.sessionId === sessionParam);
+          if (matched) {
+            return res.status(200).json(matched);
+          }
+        } catch {}
+      }
+    }
+
     const now = Date.now();
     if (memoryGallery && (now - lastCacheTime) < CACHE_TTL_MS) {
       return res.status(200).json(memoryGallery);

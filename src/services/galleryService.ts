@@ -7,6 +7,7 @@ import {
   GalleryLayoutMode,
   GallerySession,
   GalleryThemeId,
+  PhotoItem,
   StorageStatusResponse,
   StoredSubmissionRecord,
   SubmissionStatus,
@@ -22,6 +23,24 @@ const DEFAULT_SESSION_ID =
 const DRAFT_STORAGE_PREFIX = 'pp256_proofing_draft_v1_';
 const GALLERY_ACCESS_PREFIX = 'pp256_gallery_access_v1_';
 const ADMIN_SESSION_KEY = 'pp256_admin_passcode_v1';
+const LOCAL_GALLERIES_STORAGE_KEY = 'pp256_client_galleries_cache_v1';
+
+export function getLocalStoredGalleries(): AdminGalleryRecord[] {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_GALLERIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return Object.values(MOCK_GALLERY_SESSIONS) as AdminGalleryRecord[];
+}
+
+export function setLocalStoredGalleries(galleries: AdminGalleryRecord[]): void {
+  try {
+    window.localStorage.setItem(LOCAL_GALLERIES_STORAGE_KEY, JSON.stringify(galleries));
+  } catch {}
+}
 
 export interface ProofingDraftState {
   favoriteIds: string[];
@@ -130,9 +149,19 @@ export async function fetchGallerySession(
     }
   }
 
+  // Fallback: check locally stored galleries created by admin
+  const localList = getLocalStoredGalleries();
+  const matchedLocal = localList.find((g) => g.sessionId === sessionId);
+  if (matchedLocal) {
+    return {
+      ...matchedLocal,
+      photographerName: matchedLocal.photographerName || DEFAULT_BRAND,
+    };
+  }
+
   // Fallback for standalone static builds
   const fallback =
-    MOCK_GALLERY_SESSIONS[sessionId] || Object.values(MOCK_GALLERY_SESSIONS)[0];
+    MOCK_GALLERY_SESSIONS[sessionId] || localList[0] || Object.values(MOCK_GALLERY_SESSIONS)[0];
   return {
     ...fallback,
     photographerName: DEFAULT_BRAND,
@@ -248,35 +277,91 @@ export async function verifyAdminPasscode(passcode: string): Promise<boolean> {
 export async function adminListGalleries(
   passcode: string
 ): Promise<AdminGalleryRecord[]> {
-  const res = await fetch(`${API_BASE_URL}/api/admin/galleries`, {
-    headers: adminHeaders(passcode),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Failed to load galleries.');
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/galleries`, {
+      headers: adminHeaders(passcode),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { galleries: AdminGalleryRecord[] };
+      if (Array.isArray(data.galleries) && data.galleries.length > 0) {
+        setLocalStoredGalleries(data.galleries);
+        return data.galleries;
+      }
+    }
+  } catch (err) {
+    console.warn('[Admin Galleries] API error, falling back to local storage:', err);
   }
-  const data = (await res.json()) as { galleries: AdminGalleryRecord[] };
-  return data.galleries;
+  return getLocalStoredGalleries();
 }
 
 export async function adminCreateGallery(
   passcode: string,
   payload: GalleryMutationPayload
 ): Promise<AdminGalleryRecord> {
-  const res = await fetch(`${API_BASE_URL}/api/admin/galleries`, {
-    method: 'POST',
-    headers: {
-      ...adminHeaders(passcode),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/galleries`, {
+      method: 'POST',
+      headers: {
+        ...adminHeaders(passcode),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { gallery: AdminGalleryRecord };
+      if (data && data.gallery) {
+        const local = getLocalStoredGalleries();
+        setLocalStoredGalleries([
+          data.gallery,
+          ...local.filter((g) => g.sessionId !== data.gallery.sessionId),
+        ]);
+        return data.gallery;
+      }
+    }
     const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Unable to create gallery.');
+    if (err?.error && !USE_MOCK_DATA) {
+      throw new Error(err.error);
+    }
+  } catch (err) {
+    if (!USE_MOCK_DATA) throw err;
+    console.warn('[Admin Galleries] Create API error, saving locally:', err);
   }
-  const data = (await res.json()) as { gallery: AdminGalleryRecord };
-  return data.gallery;
+
+  // Resilient fallback: create and save in localStorage
+  const slug =
+    (
+      payload.sessionId ||
+      payload.sessionName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    ).replace(/^-|-$/g, '') || `session-${Date.now()}`;
+
+  const newRecord: AdminGalleryRecord = {
+    sessionId: slug,
+    sessionName: payload.sessionName,
+    clientDisplayName: payload.clientDisplayName || '',
+    photographerName: DEFAULT_BRAND,
+    shootDate: payload.shootDate,
+    category: payload.category || 'Wedding & Editorial',
+    instructions:
+      payload.instructions ||
+      'Select your favorite frames with the heart button.',
+    driveFolderId: payload.driveFolderId,
+    theme: payload.theme || 'editorial-light',
+    headerStyle: payload.headerStyle || 'editorial',
+    defaultLayout: payload.defaultLayout || 'masonry',
+    coverPhotoId: '',
+    allowZipDownload: payload.allowZipDownload !== false,
+    passcode: payload.passcode,
+    requiresPasscode: Boolean(payload.passcode),
+    source: 'studio',
+    createdAt: new Date().toISOString(),
+    photos: [],
+    submissionCount: 0,
+  };
+
+  const existing = getLocalStoredGalleries();
+  const updated = [newRecord, ...existing.filter((g) => g.sessionId !== slug)];
+  setLocalStoredGalleries(updated);
+  return newRecord;
 }
 
 export async function adminUpdateGallery(
@@ -284,40 +369,61 @@ export async function adminUpdateGallery(
   sessionId: string,
   payload: Partial<GalleryMutationPayload>
 ): Promise<AdminGalleryRecord> {
-  const res = await fetch(
-    `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}`,
-    {
-      method: 'PATCH',
-      headers: {
-        ...adminHeaders(passcode),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...adminHeaders(passcode),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { gallery: AdminGalleryRecord };
+      if (data && data.gallery) {
+        const local = getLocalStoredGalleries();
+        setLocalStoredGalleries(
+          local.map((g) =>
+            g.sessionId === sessionId ? { ...g, ...data.gallery } : g
+          )
+        );
+        return data.gallery;
+      }
     }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Unable to update gallery.');
+  } catch (err) {
+    console.warn('[Admin Galleries] Update API error, saving locally:', err);
   }
-  const data = (await res.json()) as { gallery: AdminGalleryRecord };
-  return data.gallery;
+
+  const local = getLocalStoredGalleries();
+  const idx = local.findIndex((g) => g.sessionId === sessionId);
+  if (idx >= 0) {
+    local[idx] = { ...local[idx], ...payload };
+    setLocalStoredGalleries(local);
+    return local[idx];
+  }
+  throw new Error(`Gallery "${sessionId}" not found.`);
 }
 
 export async function adminDeleteGallery(
   passcode: string,
   sessionId: string
 ): Promise<void> {
-  const res = await fetch(
-    `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}`,
-    {
-      method: 'DELETE',
-      headers: adminHeaders(passcode),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Unable to delete gallery.');
+  try {
+    await fetch(
+      `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}`,
+      {
+        method: 'DELETE',
+        headers: adminHeaders(passcode),
+      }
+    );
+  } catch (err) {
+    console.warn('[Admin Galleries] Delete API error, deleting locally:', err);
   }
+  const local = getLocalStoredGalleries();
+  setLocalStoredGalleries(local.filter((g) => g.sessionId !== sessionId));
 }
 
 export async function adminUploadPhotos(
@@ -328,41 +434,139 @@ export async function adminUploadPhotos(
   gallery: AdminGalleryRecord;
   uploadDestination: 'google-drive' | 'local';
 }> {
-  const formData = new FormData();
-  for (const file of files) {
-    formData.append('photos', file);
+  try {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('photos', file);
+    }
+
+    const res = await fetch(
+      `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}/photos`,
+      {
+        method: 'POST',
+        headers: {
+          'x-admin-passcode': passcode,
+        },
+        body: formData,
+      }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as {
+        gallery: AdminGalleryRecord;
+        uploadDestination: 'google-drive' | 'local';
+      };
+      if (data?.gallery) {
+        const local = getLocalStoredGalleries();
+        setLocalStoredGalleries(
+          local.map((g) => (g.sessionId === sessionId ? { ...g, ...data.gallery } : g))
+        );
+        return data;
+      }
+    }
+    const err = await res.json().catch(() => null);
+    if (err?.error && !USE_MOCK_DATA) {
+      throw new Error(err.error);
+    }
+  } catch (err) {
+    if (!USE_MOCK_DATA) throw err;
+    console.warn('[Admin Photo Upload] API error, falling back to local file readers:', err);
   }
 
-  const res = await fetch(
-    `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(sessionId)}/photos`,
-    {
-      method: 'POST',
-      headers: {
-        'x-admin-passcode': passcode,
-      },
-      body: formData,
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Photo upload failed.');
+  // Fallback: convert files to object URLs / base64 and save to localStorage
+  const readPhotoAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+
+  const photoItems: PhotoItem[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const dataUrl = await readPhotoAsDataUrl(file);
+    const photoId = `pp256-local-${Date.now().toString(36)}-${i}`;
+    photoItems.push({
+      id: photoId,
+      filename: file.name,
+      title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' '),
+      thumbnailUrl: dataUrl || URL.createObjectURL(file),
+      fullUrl: dataUrl || URL.createObjectURL(file),
+      sizeBytes: file.size,
+      mimeType: file.type,
+      storage: 'local',
+      capturedAt: new Date().toISOString(),
+    });
   }
-  return (await res.json()) as {
-    gallery: AdminGalleryRecord;
-    uploadDestination: 'google-drive' | 'local';
-  };
+
+  const local = getLocalStoredGalleries();
+  const idx = local.findIndex((g) => g.sessionId === sessionId);
+  if (idx >= 0) {
+    local[idx].photos = [...(local[idx].photos || []), ...photoItems];
+    if (!local[idx].coverPhotoId && local[idx].photos.length > 0) {
+      local[idx].coverPhotoId = local[idx].photos[0].id;
+    }
+    setLocalStoredGalleries(local);
+    return {
+      gallery: local[idx],
+      uploadDestination: 'local',
+    };
+  }
+
+  throw new Error('Gallery not found.');
+}
+
+export async function adminDeletePhoto(
+  passcode: string,
+  sessionId: string,
+  photoId: string
+): Promise<AdminGalleryRecord> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(
+        sessionId
+      )}/photos/${encodeURIComponent(photoId)}`,
+      {
+        method: 'DELETE',
+        headers: adminHeaders(passcode),
+      }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { gallery: AdminGalleryRecord };
+      if (data?.gallery) {
+        const local = getLocalStoredGalleries();
+        setLocalStoredGalleries(
+          local.map((g) => (g.sessionId === sessionId ? { ...g, ...data.gallery } : g))
+        );
+        return data.gallery;
+      }
+    }
+  } catch (err) {
+    console.warn('[Admin Photo Delete] API error, removing locally:', err);
+  }
+
+  const local = getLocalStoredGalleries();
+  const target = local.find((g) => g.sessionId === sessionId);
+  if (target) {
+    target.photos = (target.photos || []).filter((p) => p.id !== photoId);
+    setLocalStoredGalleries(local);
+    return target;
+  }
+  throw new Error('Gallery not found.');
 }
 
 export async function adminGetDriveStatus(
   passcode: string
 ): Promise<DriveStatusResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/admin/drive/status`, {
-    headers: adminHeaders(passcode),
-  });
-  if (!res.ok) {
-    return { configured: false };
-  }
-  return (await res.json()) as DriveStatusResponse;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/drive/status`, {
+      headers: adminHeaders(passcode),
+    });
+    if (res.ok) {
+      return (await res.json()) as DriveStatusResponse;
+    }
+  } catch {}
+  return { configured: false };
 }
 
 export async function adminCreateDriveFolder(
@@ -407,28 +611,6 @@ export async function adminSyncDriveFolder(
     gallery: AdminGalleryRecord;
     syncedCount: number;
   };
-}
-
-export async function adminDeletePhoto(
-  passcode: string,
-  sessionId: string,
-  photoId: string
-): Promise<AdminGalleryRecord> {
-  const res = await fetch(
-    `${API_BASE_URL}/api/admin/galleries/${encodeURIComponent(
-      sessionId
-    )}/photos/${encodeURIComponent(photoId)}`,
-    {
-      method: 'DELETE',
-      headers: adminHeaders(passcode),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || 'Unable to remove photo.');
-  }
-  const data = (await res.json()) as { gallery: AdminGalleryRecord };
-  return data.gallery;
 }
 
 export async function adminListSubmissions(

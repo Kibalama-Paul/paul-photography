@@ -7,6 +7,8 @@ import path from 'path';
 import favoritesHandler, { loadLocalEnv } from './api/favorites.js';
 // @ts-ignore
 import storageHandler from './api/admin/storage-status.js';
+// @ts-ignore
+import galleriesHandler from './api/admin/galleries.js';
 
 function paulDevApiPlugin() {
   loadLocalEnv();
@@ -219,6 +221,20 @@ function paulDevApiPlugin() {
           }
 
           if (req.method === 'GET') {
+            if (rawUrl.includes('session=')) {
+              try {
+                const sessionParam = new URL(rawUrl, 'http://localhost').searchParams.get('session');
+                const proofingFile = path.resolve(dataDir, 'proofing-galleries.json');
+                if (fs.existsSync(proofingFile)) {
+                  const list = JSON.parse(fs.readFileSync(proofingFile, 'utf-8') || '[]');
+                  const matched = list.find((g: any) => g.sessionId === sessionParam);
+                  if (matched) {
+                    res.end(JSON.stringify(matched));
+                    return;
+                  }
+                }
+              } catch {}
+            }
             const items = readGallery();
             res.end(JSON.stringify(items));
             return;
@@ -454,9 +470,27 @@ function paulDevApiPlugin() {
           return;
         }
 
-        if (url === '/api/admin/submissions') {
+        if (
+          url === '/api/admin/galleries' ||
+          url?.startsWith('/api/admin/galleries/') ||
+          url === '/api/admin/drive/status'
+        ) {
+          await galleriesHandler(req, res);
+          return;
+        }
+
+        if (url === '/api/admin/submissions' || url?.startsWith('/api/admin/submissions/')) {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-passcode');
+
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
           const submissionsFile = path.resolve(dataDir, 'submissions.json');
           let submissions = [];
           if (fs.existsSync(submissionsFile)) {
@@ -464,9 +498,37 @@ function paulDevApiPlugin() {
               submissions = JSON.parse(fs.readFileSync(submissionsFile, 'utf-8') || '[]');
             } catch {}
           }
-          res.statusCode = 200;
-          res.end(JSON.stringify({ submissions }));
-          return;
+
+          if (req.method === 'GET') {
+            res.statusCode = 200;
+            res.end(JSON.stringify({ submissions }));
+            return;
+          }
+
+          if (req.method === 'PATCH' && url?.startsWith('/api/admin/submissions/')) {
+            const subId = url.split('/').pop();
+            let b = '';
+            req.on('data', (c: any) => (b += c));
+            req.on('end', () => {
+              try {
+                const payload = b ? JSON.parse(b) : {};
+                const idx = submissions.findIndex((s: any) => s.submissionId === subId);
+                if (idx >= 0) {
+                  submissions[idx] = { ...submissions[idx], ...payload };
+                  fs.writeFileSync(submissionsFile, JSON.stringify(submissions, null, 2), 'utf-8');
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ submission: submissions[idx] }));
+                } else {
+                  res.statusCode = 404;
+                  res.end(JSON.stringify({ error: 'Submission not found' }));
+                }
+              } catch {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'Invalid request' }));
+              }
+            });
+            return;
+          }
         }
 
         if (url === '/api/admin/storage-status') {
