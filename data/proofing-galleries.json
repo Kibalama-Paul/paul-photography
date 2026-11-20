@@ -1,5 +1,33 @@
 [
   {
+    "sessionId": "test-delete-gallery",
+    "sessionName": "Test Delete Gallery",
+    "clientDisplayName": "Test Client",
+    "photographerName": "Paul Photography 256",
+    "shootDate": "November 20, 2026",
+    "category": "Portrait",
+    "instructions": "Select your favorite frames with the heart button.",
+    "theme": "editorial-light",
+    "headerStyle": "editorial",
+    "defaultLayout": "masonry",
+    "coverPhotoId": "",
+    "allowZipDownload": false,
+    "watermarkEnabled": false,
+    "watermarkText": "PAUL PHOTOGRAPHY 256",
+    "coverLayout": "full-bleed",
+    "status": "published",
+    "sets": [
+      "Highlights",
+      "Ceremony",
+      "Portraits"
+    ],
+    "requiresPasscode": false,
+    "source": "studio",
+    "createdAt": "2026-11-20T14:43:46.466Z",
+    "photos": [],
+    "submissionCount": 0
+  },
+  {
     "sessionId": "kampala-editorial-2026",
     "sessionName": "Golden Hour Wedding & Editorial Session",
     "clientDisplayName": "Amara & Daniel",

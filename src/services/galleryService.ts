@@ -40,7 +40,7 @@ export function getLocalStoredGalleries(): AdminGalleryRecord[] {
       if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-  return Object.values(MOCK_GALLERY_SESSIONS) as AdminGalleryRecord[];
+  return [];
 }
 
 export function setLocalStoredGalleries(galleries: AdminGalleryRecord[]): void {
@@ -515,12 +515,15 @@ export async function adminDeleteGallery(
         headers: adminHeaders(passcode),
       }
     );
-    if (!res.ok) {
+    if (!res.ok && res.status !== 404) {
       const err = await res.json().catch(() => null);
-      throw new Error(err?.error || 'Failed to delete gallery on server.');
+      throw new Error(err?.error || `Failed to delete gallery (HTTP ${res.status}).`);
     }
   } catch (err) {
-    console.warn('[Admin Galleries] Delete API error:', err);
+    if (err instanceof Error && !err.message.includes('404')) {
+      console.warn('[Admin Galleries] Delete API error:', err);
+      throw err;
+    }
   }
 
   try {

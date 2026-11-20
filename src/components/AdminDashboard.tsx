@@ -204,6 +204,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [isDeletingSubmission, setIsDeletingSubmission] = useState(false);
+  const [isDeletingGallery, setIsDeletingGallery] = useState(false);
 
   // Photographer-only batch export state
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -727,6 +728,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleDeleteGallery = async () => {
     if (!adminPasscode || !activeGallery) return;
+    setIsDeletingGallery(true);
     try {
       await adminDeleteGallery(adminPasscode, activeGallery.sessionId);
       const remaining = galleries.filter(
@@ -737,6 +739,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setConfirmDeleteGallery(false);
     } catch (err) {
       setDataError(err instanceof Error ? err.message : 'Unable to delete gallery.');
+    } finally {
+      setIsDeletingGallery(false);
     }
   };
 
@@ -1118,7 +1122,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </span>
               {storageStatus ? (
                 <span className="font-mono text-[11px] tabular-nums opacity-75">
-                  {storageStatus.disk.freeFormatted} free
+                  {storageStatus.r2?.configured && storageStatus.r2.freeFormatted
+                    ? `${storageStatus.r2.freeFormatted} free`
+                    : `${storageStatus.disk.freeFormatted} free`}
                 </span>
               ) : (
                 <span className="font-mono text-[11px] tabular-nums opacity-50">Admin</span>
@@ -1209,9 +1215,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {storageStatus && (
           <div className="mx-3.5 mt-auto mb-2 hidden rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 lg:block">
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 font-medium text-zinc-700">
-                <HardDrive size={13} className="text-zinc-500" />
-                <span>Server Storage</span>
+              <span className="flex items-center gap-1.5 font-medium text-zinc-800">
+                <CloudUpload size={13} className="text-orange-500" />
+                <span>{storageStatus.r2?.configured ? 'Cloudflare R2 Storage' : 'Server Storage'}</span>
               </span>
               <button
                 type="button"
@@ -1224,33 +1230,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  storageStatus.disk.usedPercent > 90
-                    ? 'bg-rose-500'
-                    : storageStatus.disk.usedPercent > 75
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, storageStatus.disk.usedPercent)}%` }}
-              />
-            </div>
-
-            <div className="mt-2 flex items-center justify-between font-mono text-[11px] tabular-nums text-zinc-600">
-              <span>{storageStatus.disk.usedFormatted} used</span>
-              <span className="font-semibold text-emerald-700">{storageStatus.disk.freeFormatted} free</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400">
-              <span>Total {storageStatus.disk.totalFormatted}</span>
-              <button
-                type="button"
-                onClick={() => setSection('storage')}
-                className="text-zinc-600 hover:text-zinc-950 underline font-medium"
-              >
-                Details
-              </button>
-            </div>
+            {storageStatus.r2?.configured ? (
+              <>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                  <div
+                    className="h-full rounded-full bg-orange-500 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(storageStatus.r2.usedPercent || 0, 1))}%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between font-mono text-[11px] tabular-nums text-zinc-700">
+                  <span>{storageStatus.r2.totalSizeFormatted || '0 B'} used</span>
+                  <span className="font-semibold text-emerald-700">{storageStatus.r2.freeFormatted || '10 GB'} free</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400">
+                  <span>Free Tier: {storageStatus.r2.limitFormatted || '10 GB'}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSection('storage')}
+                    className="text-zinc-600 hover:text-zinc-950 underline font-medium"
+                  >
+                    Details
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      storageStatus.disk.usedPercent > 90
+                        ? 'bg-rose-500'
+                        : storageStatus.disk.usedPercent > 75
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                    }`}
+                    style={{ width: `${Math.min(100, storageStatus.disk.usedPercent)}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between font-mono text-[11px] tabular-nums text-zinc-600">
+                  <span>{storageStatus.disk.usedFormatted} used</span>
+                  <span className="font-semibold text-emerald-700">{storageStatus.disk.freeFormatted} free</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400">
+                  <span>Total {storageStatus.disk.totalFormatted}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSection('storage')}
+                    className="text-zinc-600 hover:text-zinc-950 underline font-medium"
+                  >
+                    Details
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1429,16 +1463,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setSection('storage')}
-                title="View Server Storage and Capacity"
+                title="View Cloudflare R2 and Server Storage Capacity"
                 className={`inline-flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                   section === 'storage'
                     ? 'border-zinc-950 bg-zinc-950 text-white shadow-xs'
                     : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50'
                 }`}
               >
-                <HardDrive size={14} className={section === 'storage' ? 'text-zinc-300' : 'text-zinc-500'} />
-                <span className="font-semibold">{storageStatus.disk.freeFormatted} Free</span>
-                <span className="opacity-60 hidden sm:inline">of {storageStatus.disk.totalFormatted}</span>
+                {storageStatus.r2?.configured ? (
+                  <>
+                    <CloudUpload size={14} className="text-orange-500" />
+                    <span className="font-semibold text-emerald-700">{storageStatus.r2.freeFormatted || '10 GB'} Free (R2)</span>
+                    <span className="opacity-60 hidden sm:inline">
+                      {storageStatus.r2.totalSizeFormatted || '0 B'} used
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <HardDrive size={14} className={section === 'storage' ? 'text-zinc-300' : 'text-zinc-500'} />
+                    <span className="font-semibold">{storageStatus.disk.freeFormatted} Free</span>
+                    <span className="opacity-60 hidden sm:inline">of {storageStatus.disk.totalFormatted}</span>
+                  </>
+                )}
               </button>
             )}
             {section === 'galleries' && activeGallery && (
@@ -2439,17 +2485,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
+                            disabled={isDeletingGallery}
                             onClick={() => setConfirmDeleteGallery(false)}
-                            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-800"
+                            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-800 disabled:opacity-50"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
+                            disabled={isDeletingGallery}
                             onClick={handleDeleteGallery}
-                            className="rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
                           >
-                            Confirm Delete
+                            {isDeletingGallery ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            <span>Confirm Delete</span>
                           </button>
                         </div>
                       ) : (
@@ -2569,10 +2618,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p className="mt-1 truncate text-xs text-zinc-600">
                             {sub.sessionName}
                           </p>
-                          <p className="mt-2 font-mono text-[11px] tabular-nums text-zinc-500">
-                            {sub.selectedPhotos.length} selected &middot;{' '}
-                            {new Date(sub.timestamp).toLocaleDateString()}
-                          </p>
+                          <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
+                            <span className="font-mono tabular-nums">
+                              {sub.selectedPhotos.length} selected &middot;{' '}
+                              {new Date(sub.timestamp).toLocaleDateString()}
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSubmission(sub.submissionId, sub.clientName);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.stopPropagation();
+                                  handleDeleteSubmission(sub.submissionId, sub.clientName);
+                                }
+                              }}
+                              title="Delete Submission"
+                              className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={12} />
+                            </span>
+                          </div>
                         </button>
                       );
                     })}
@@ -2783,58 +2852,140 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                  {/* Server Disk Storage Card */}
-                  <div className="rounded-2xl border border-zinc-200 bg-white p-6">
-                    <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-950">
-                      <Server size={18} className="text-zinc-500" />
-                      <span>Server Disk Storage</span>
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="flex items-end justify-between">
-                        <span className="font-mono text-3xl font-bold tabular-nums text-zinc-950">
-                          {storageStatus.disk.usedPercent}%
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          of {storageStatus.disk.totalFormatted}
+                  {/* 1. Cloudflare R2 Cloud Storage Card (Primary Storage Hero) */}
+                  <div className="rounded-2xl border border-orange-200 bg-white p-6 xl:col-span-2 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-950">
+                        <CloudUpload size={20} className="text-orange-500" />
+                        <span>Cloudflare R2 Object Storage</span>
+                        <span className="rounded-md bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 border border-orange-200">
+                          Primary Client Cloud Storage &middot; $0 Egress Bandwidth
                         </span>
                       </div>
-
-                      <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-zinc-100">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            storageStatus.disk.usedPercent > 90
-                              ? 'bg-rose-500'
-                              : storageStatus.disk.usedPercent > 75
-                              ? 'bg-amber-500'
-                              : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${Math.min(100, storageStatus.disk.usedPercent)}%` }}
-                        />
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-4">
-                        <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                            Used Space
-                          </p>
-                          <p className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950">
-                            {storageStatus.disk.usedFormatted}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
-                            Free Space
-                          </p>
-                          <p className="mt-1 font-mono text-lg font-bold tabular-nums text-emerald-800">
-                            {storageStatus.disk.freeFormatted}
-                          </p>
-                        </div>
-                      </div>
+                      {storageStatus.r2?.configured ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Live &amp; Connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Ready to Connect
+                        </span>
+                      )}
                     </div>
+
+                    {storageStatus.r2?.configured ? (
+                      <div className="mt-5 space-y-4">
+                        <div className="flex items-end justify-between">
+                          <span className="font-mono text-3xl font-bold tabular-nums text-zinc-950">
+                            {storageStatus.r2.usedPercent ?? 0}%
+                          </span>
+                          <span className="text-xs text-zinc-500 font-medium">
+                            <strong className="text-zinc-900 font-semibold">{storageStatus.r2.totalSizeFormatted || '0 B'}</strong> used of{' '}
+                            <strong>{storageStatus.r2.limitFormatted || '10 GB'}</strong> (Cloudflare Free Tier) &middot;{' '}
+                            <span className="text-emerald-700 font-semibold">{storageStatus.r2.freeFormatted || '10 GB'} Free Space</span>
+                          </span>
+                        </div>
+
+                        {/* R2 Quota Progress Bar */}
+                        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className="h-full rounded-full transition-all duration-700 bg-orange-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(storageStatus.r2.usedPercent || 0, 1))}%`,
+                            }}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Actual Space Used
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950">
+                              {storageStatus.r2.totalSizeFormatted || '0 B'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+                              Available Free Space
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-bold tabular-nums text-emerald-800">
+                              {storageStatus.r2.freeFormatted || '10 GB'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Stored Cloud Photos
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950">
+                              {storageStatus.r2.totalObjects || 0} photo{(storageStatus.r2.totalObjects || 0) === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              R2 Bucket
+                            </p>
+                            <p className="mt-1 font-mono text-xs font-bold text-zinc-950 truncate" title={storageStatus.r2.bucketName}>
+                              {storageStatus.r2.bucketName || '—'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {storageStatus.r2.publicUrl && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs">
+                            <span className="text-zinc-500">Public CDN Endpoint:</span>
+                            <a
+                              href={storageStatus.r2.publicUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-xs font-medium text-zinc-900 hover:underline inline-flex items-center gap-1"
+                            >
+                              <span>{storageStatus.r2.publicUrl}</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-xl border border-dashed border-orange-200 bg-orange-50/40 p-5">
+                        <div className="flex items-start gap-3.5">
+                          <div className="rounded-lg bg-orange-100 p-2 text-orange-600 shrink-0">
+                            <CloudUpload size={20} />
+                          </div>
+                          <div className="text-xs text-zinc-700 space-y-2">
+                            <p className="font-semibold text-zinc-950">
+                              How to Connect Cloudflare R2 (10 GB Free Forever)
+                            </p>
+                            <p className="leading-relaxed text-zinc-600">
+                              Cloudflare R2 provides fast global photo delivery and unlimited client downloads with <strong>$0 egress bandwidth fees</strong>. To activate, add these 5 keys to your <code className="rounded bg-white px-1.5 py-0.5 font-mono text-zinc-800 border border-zinc-200">.env.local</code>:
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_ACCOUNT_ID</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Found on Cloudflare dashboard sidebar</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_BUCKET_NAME</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">e.g. paul-photography-proofing</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_ACCESS_KEY_ID</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">From &quot;Manage R2 API Tokens&quot;</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_SECRET_ACCESS_KEY</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Secret access key string</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Studio Proofing Footprint Card */}
+                  {/* 2. Studio Proofing Footprint Card */}
                   <div className="rounded-2xl border border-zinc-200 bg-white p-6">
                     <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-950">
                       <Database size={18} className="text-zinc-500" />
@@ -2895,138 +3046,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Cloudflare R2 Cloud Storage Card */}
-                  <div className="rounded-2xl border border-zinc-200 bg-white p-6 xl:col-span-2">
+                  {/* 3. Server Disk Storage Card (Local Host Machine) */}
+                  <div className="rounded-2xl border border-zinc-200 bg-white p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-950">
-                        <CloudUpload size={18} className="text-orange-500" />
-                        <span>Cloudflare R2 Object Storage</span>
-                        <span className="hidden sm:inline-block rounded-md bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 border border-orange-200">
-                          $0 Egress Bandwidth
-                        </span>
+                        <Server size={18} className="text-zinc-500" />
+                        <span>Local Host Server Disk</span>
                       </div>
-                      {storageStatus.r2?.configured ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Connected &amp; Ready
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          Ready to Connect
-                        </span>
-                      )}
+                      <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 border border-zinc-200">
+                        macOS Host Drive
+                      </span>
                     </div>
 
-                    {storageStatus.r2?.configured ? (
-                      <div className="mt-5 space-y-4">
-                        <div className="flex items-end justify-between">
-                          <span className="font-mono text-3xl font-bold tabular-nums text-zinc-950">
-                            {storageStatus.r2.usedPercent ?? 0}%
-                          </span>
-                          <span className="text-xs text-zinc-500 font-medium">
-                            {storageStatus.r2.totalSizeFormatted || '0 B'} used of {storageStatus.r2.limitFormatted || '10 GB'} (Free Tier)
-                          </span>
-                        </div>
-
-                        {/* R2 Quota Progress Bar */}
-                        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
-                          <div
-                            className="h-full rounded-full transition-all duration-700 bg-orange-500"
-                            style={{
-                              width: `${Math.min(100, Math.max(storageStatus.r2.usedPercent || 0, 1))}%`,
-                            }}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                              Space Used
-                            </p>
-                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-zinc-950">
-                              {storageStatus.r2.totalSizeFormatted || '0 B'}
-                            </p>
-                          </div>
-                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">
-                              Free Space
-                            </p>
-                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-emerald-800">
-                              {storageStatus.r2.freeFormatted || '10 GB'}
-                            </p>
-                          </div>
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                              Stored Objects
-                            </p>
-                            <p className="mt-1 font-mono text-base font-bold tabular-nums text-zinc-950">
-                              {storageStatus.r2.totalObjects || 0} photo{(storageStatus.r2.totalObjects || 0) === 1 ? '' : 's'}
-                            </p>
-                          </div>
-                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                              R2 Bucket
-                            </p>
-                            <p className="mt-1 font-mono text-xs font-bold text-zinc-950 truncate" title={storageStatus.r2.bucketName}>
-                              {storageStatus.r2.bucketName || '—'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {storageStatus.r2.publicUrl && (
-                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs">
-                            <span className="text-zinc-500">Public CDN Endpoint:</span>
-                            <a
-                              href={storageStatus.r2.publicUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-mono text-xs font-medium text-zinc-900 hover:underline inline-flex items-center gap-1"
-                            >
-                              <span>{storageStatus.r2.publicUrl}</span>
-                              <ExternalLink size={12} />
-                            </a>
-                          </div>
-                        )}
+                    <div className="mt-5">
+                      <div className="flex items-end justify-between">
+                        <span className="font-mono text-3xl font-bold tabular-nums text-zinc-950">
+                          {storageStatus.disk.usedPercent}%
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          of {storageStatus.disk.totalFormatted} total host disk
+                        </span>
                       </div>
-                    ) : (
-                      <div className="mt-5 rounded-xl border border-dashed border-orange-200 bg-orange-50/40 p-5">
-                        <div className="flex items-start gap-3.5">
-                          <div className="rounded-lg bg-orange-100 p-2 text-orange-600 shrink-0">
-                            <CloudUpload size={20} />
-                          </div>
-                          <div className="text-xs text-zinc-700 space-y-2">
-                            <p className="font-semibold text-zinc-950">
-                              How to Connect Cloudflare R2 (10 GB Free Forever)
-                            </p>
-                            <p className="leading-relaxed text-zinc-600">
-                              Cloudflare R2 provides fast global photo delivery and unlimited client downloads with <strong>$0 egress bandwidth fees</strong>. To activate, add these 5 keys to your <code className="rounded bg-white px-1.5 py-0.5 font-mono text-zinc-800 border border-zinc-200">.env.local</code>:
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
-                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
-                                <span className="font-semibold text-zinc-900">R2_ACCOUNT_ID</span>
-                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Found on Cloudflare dashboard sidebar</p>
-                              </div>
-                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
-                                <span className="font-semibold text-zinc-900">R2_BUCKET_NAME</span>
-                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">e.g. paul-photography-proofing</p>
-                              </div>
-                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
-                                <span className="font-semibold text-zinc-900">R2_ACCESS_KEY_ID</span>
-                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">From &quot;Manage R2 API Tokens&quot;</p>
-                              </div>
-                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
-                                <span className="font-semibold text-zinc-900">R2_SECRET_ACCESS_KEY</span>
-                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">From &quot;Manage R2 API Tokens&quot;</p>
-                              </div>
-                            </div>
-                            <p className="text-[11px] text-zinc-500 pt-1">
-                              Until credentials are set, new photo uploads automatically store safely on your local studio SSD.
-                            </p>
-                          </div>
+
+                      <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            storageStatus.disk.usedPercent > 90
+                              ? 'bg-rose-500'
+                              : storageStatus.disk.usedPercent > 75
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, storageStatus.disk.usedPercent)}%` }}
+                        />
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                            Host Used Space
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950">
+                            {storageStatus.disk.usedFormatted}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                            Host Free Space
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-bold tabular-nums text-emerald-800">
+                            {storageStatus.disk.freeFormatted}
+                          </p>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Google Drive Quota Card */}
@@ -3318,8 +3391,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
               <button
                 type="button"
+                disabled={isDeletingGallery}
                 onClick={async () => {
                   if (!adminPasscode || !galleryToDelete) return;
+                  setIsDeletingGallery(true);
                   try {
                     await adminDeleteGallery(adminPasscode, galleryToDelete.sessionId);
                     const remaining = galleries.filter(
@@ -3334,11 +3409,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     setDataError(
                       err instanceof Error ? err.message : 'Unable to delete gallery.'
                     );
+                  } finally {
+                    setIsDeletingGallery(false);
                   }
                 }}
-                className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 shadow-sm disabled:opacity-50"
               >
-                Yes, Delete Gallery
+                {isDeletingGallery ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                <span>Yes, Delete Gallery</span>
               </button>
             </div>
           </div>
