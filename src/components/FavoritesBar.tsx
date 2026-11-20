@@ -1,5 +1,14 @@
 import React from 'react';
-import { Columns3, Heart, LayoutGrid, Send } from 'lucide-react';
+import {
+  Columns2,
+  Columns3,
+  Download,
+  Heart,
+  LayoutGrid,
+  Play,
+  Send,
+  Share2,
+} from 'lucide-react';
 import { getGalleryThemeClasses } from '../data/galleryThemes';
 import {
   GalleryFilter,
@@ -8,6 +17,7 @@ import {
   GalleryThemeId,
   PhotoItem,
 } from '../types/gallery';
+import { PixiesetCoverHero } from './PixiesetCoverHero';
 
 interface FavoritesBarProps {
   sessionName: string;
@@ -27,6 +37,10 @@ interface FavoritesBarProps {
   onFilterChange: (filter: GalleryFilter) => void;
   onLayoutModeChange: (mode: GalleryLayoutMode) => void;
   onOpenSubmit: () => void;
+  onOpenShare?: () => void;
+  onOpenDownload?: () => void;
+  onOpenSlideshow?: () => void;
+  onOpenCompare?: () => void;
   showSubmitButton?: boolean;
 }
 
@@ -48,6 +62,10 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
   onFilterChange,
   onLayoutModeChange,
   onOpenSubmit,
+  onOpenShare,
+  onOpenDownload,
+  onOpenSlideshow,
+  onOpenCompare,
   showSubmitButton = true,
 }) => {
   const t = getGalleryThemeClasses(theme);
@@ -55,112 +73,38 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
     ? `${favoritesCount}/${maxSelections}`
     : String(favoritesCount);
 
+  const scrollToGallery = () => {
+    const el = document.getElementById('gallery-sticky-bar');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <header className="mb-8">
-      {headerStyle === 'split-cover' && coverPhoto ? (
-        <div
-          className={`grid grid-cols-1 items-stretch gap-6 rounded-2xl border p-6 lg:grid-cols-12 lg:p-8 ${t.surface} ${t.border}`}
-        >
-          <div className="flex flex-col justify-between gap-6 lg:col-span-7">
-            <div>
-              <div
-                className={`mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-medium tracking-wide ${t.textMuted}`}
-              >
-                <span>{photographerName}</span>
-                <span aria-hidden="true">&middot;</span>
-                <span>{shootDate}</span>
-                {category && (
-                  <>
-                    <span aria-hidden="true">&middot;</span>
-                    <span>{category}</span>
-                  </>
-                )}
-                <span aria-hidden="true">&middot;</span>
-                <span className="font-mono tabular-nums">{totalCount} frames</span>
-              </div>
+    <header className="mb-6">
+      {/* Pixieset Cover Hero (Full-Bleed, Split, or Editorial) */}
+      <PixiesetCoverHero
+        sessionName={sessionName}
+        clientDisplayName={clientDisplayName}
+        photographerName={photographerName}
+        shootDate={shootDate}
+        category={category}
+        instructions={instructions}
+        totalCount={totalCount}
+        coverPhoto={coverPhoto}
+        headerStyle={headerStyle}
+        theme={theme}
+        onScrollToGallery={scrollToGallery}
+      />
 
-              <h1
-                className={`font-serif text-3xl font-medium tracking-tight sm:text-4xl lg:text-[2.65rem] lg:leading-[1.12] ${t.textPrimary}`}
-              >
-                {sessionName}
-              </h1>
-
-              {clientDisplayName && (
-                <p className={`mt-2 text-sm font-medium ${t.textSecondary}`}>
-                  Prepared for {clientDisplayName}
-                </p>
-              )}
-
-              {instructions && (
-                <p className={`mt-4 max-w-xl text-sm leading-relaxed ${t.textSecondary}`}>
-                  {instructions}
-                </p>
-              )}
-            </div>
-
-            {maxSelections && (
-              <div className={`border-t pt-4 text-xs ${t.border} ${t.textMuted}`}>
-                Package allowance:{' '}
-                <span className={`font-mono font-semibold tabular-nums ${t.textPrimary}`}>
-                  {favoritesCount} of {maxSelections}
-                </span>{' '}
-                frames selected
-              </div>
-            )}
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-zinc-200/20 lg:col-span-5">
-            <img
-              src={coverPhoto.fullUrl}
-              alt={coverPhoto.title || sessionName}
-              referrerPolicy="no-referrer"
-              className="h-64 w-full object-cover lg:h-full lg:max-h-[340px]"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="max-w-3xl">
-          <div
-            className={`mb-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-medium tracking-wide ${t.textMuted}`}
-          >
-            <span>{photographerName}</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>{shootDate}</span>
-            {category && (
-              <>
-                <span aria-hidden="true">&middot;</span>
-                <span>{category}</span>
-              </>
-            )}
-            <span aria-hidden="true">&middot;</span>
-            <span className="font-mono tabular-nums">{totalCount} frames</span>
-            {clientDisplayName && (
-              <>
-                <span aria-hidden="true">&middot;</span>
-                <span>{clientDisplayName}</span>
-              </>
-            )}
-          </div>
-
-          <h1
-            className={`font-serif text-3xl font-medium tracking-tight sm:text-4xl ${t.textPrimary}`}
-          >
-            {sessionName}
-          </h1>
-
-          {instructions && (
-            <p className={`mt-3 text-sm leading-relaxed sm:text-[15px] ${t.textSecondary}`}>
-              {instructions}
-            </p>
-          )}
-        </div>
-      )}
-
+      {/* Sticky Pixieset Navigation & Action Toolbar */}
       <div
-        className={`sticky top-3 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-sm backdrop-blur-md ${t.toolbarBg}`}
+        id="gallery-sticky-bar"
+        className={`sticky top-3 z-20 mt-4 flex flex-wrap items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 shadow-sm backdrop-blur-md transition-all ${t.toolbarBg}`}
         role="region"
-        aria-label="Gallery filter and layout controls"
+        aria-label="Gallery filter and action controls"
       >
+        {/* Left: Filter Tabs (All Photos vs My Favorites) */}
         <div className="flex flex-wrap items-center gap-2">
           <div
             className={`inline-flex items-center gap-1 rounded-lg p-1 ${t.tabContainerBg}`}
@@ -172,7 +116,7 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
               role="tab"
               aria-selected={activeFilter === 'all'}
               onClick={() => onFilterChange('all')}
-              className={`inline-flex min-h-[38px] items-center gap-2 whitespace-nowrap shrink-0 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap shrink-0 rounded-md px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
                 activeFilter === 'all'
                   ? t.tabActiveBg
                   : `${t.textMuted} hover:${t.textPrimary}`
@@ -189,14 +133,14 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
               role="tab"
               aria-selected={activeFilter === 'favorites'}
               onClick={() => onFilterChange('favorites')}
-              className={`inline-flex min-h-[38px] items-center gap-2 whitespace-nowrap shrink-0 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`inline-flex min-h-[36px] items-center gap-2 whitespace-nowrap shrink-0 rounded-md px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
                 activeFilter === 'favorites'
                   ? t.tabActiveBg
                   : `${t.textMuted} hover:${t.textPrimary}`
               }`}
             >
               <Heart
-                size={15}
+                size={14}
                 className={
                   favoritesCount > 0 ? 'fill-rose-600 text-rose-600' : 'opacity-70'
                 }
@@ -209,9 +153,11 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        {/* Right: Pixieset Actions (Slideshow, Compare, Download, Share, Submit) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Layout switches (Desktop) */}
           <div
-            className={`hidden items-center gap-1 rounded-lg p-1 sm:inline-flex ${t.tabContainerBg}`}
+            className={`hidden items-center gap-1 rounded-lg p-1 lg:inline-flex ${t.tabContainerBg}`}
             role="group"
             aria-label="Gallery layout"
           >
@@ -220,7 +166,7 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
               onClick={() => onLayoutModeChange('masonry')}
               aria-pressed={layoutMode === 'masonry'}
               title="Masonry layout"
-              className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 layoutMode === 'masonry' ? t.tabActiveBg : t.textMuted
               }`}
             >
@@ -232,7 +178,7 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
               onClick={() => onLayoutModeChange('grid')}
               aria-pressed={layoutMode === 'grid'}
               title="Uniform grid layout"
-              className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 layoutMode === 'grid' ? t.tabActiveBg : t.textMuted
               }`}
             >
@@ -241,13 +187,66 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
             </button>
           </div>
 
+          {/* Slideshow Button */}
+          {onOpenSlideshow && (
+            <button
+              type="button"
+              onClick={onOpenSlideshow}
+              title="Play Fullscreen Slideshow"
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${t.border} ${t.surface} ${t.textSecondary} hover:${t.textPrimary}`}
+            >
+              <Play size={13} className="fill-current" />
+              <span className="hidden sm:inline">Slideshow</span>
+            </button>
+          )}
+
+          {/* Compare Button */}
+          {onOpenCompare && totalCount >= 2 && (
+            <button
+              type="button"
+              onClick={onOpenCompare}
+              title="Compare Photos Side-by-Side"
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${t.border} ${t.surface} ${t.textSecondary} hover:${t.textPrimary}`}
+            >
+              <Columns2 size={14} />
+              <span className="hidden sm:inline">Compare</span>
+            </button>
+          )}
+
+          {/* Download Button */}
+          {onOpenDownload && (
+            <button
+              type="button"
+              onClick={onOpenDownload}
+              title="Download High-Res Photos"
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${t.border} ${t.surface} ${t.textSecondary} hover:${t.textPrimary}`}
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">Download</span>
+            </button>
+          )}
+
+          {/* Share Button */}
+          {onOpenShare && (
+            <button
+              type="button"
+              onClick={onOpenShare}
+              title="Share Gallery Link & QR Code"
+              className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${t.border} ${t.surface} ${t.textSecondary} hover:${t.textPrimary}`}
+            >
+              <Share2 size={14} />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+          )}
+
+          {/* Submit Selections CTA Button */}
           {showSubmitButton && (
             <button
               type="button"
               onClick={onOpenSubmit}
-              className={`inline-flex min-h-[40px] items-center gap-2 whitespace-nowrap shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${t.primaryBtn}`}
+              className={`inline-flex min-h-[38px] items-center gap-2 whitespace-nowrap shrink-0 rounded-lg px-4 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${t.primaryBtn}`}
             >
-              <Send size={15} />
+              <Send size={14} />
               <span>
                 Submit Selections
                 {favoritesCount > 0 ? ` (${favoritesCount})` : ''}

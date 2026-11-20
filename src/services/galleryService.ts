@@ -1,7 +1,12 @@
 import { MOCK_GALLERY_SESSIONS } from '../data/mockGallery';
 import { createWebOptimizedBlob } from '../utils/imageOptimizer';
 import {
+  broadcastGalleryChange,
+  broadcastNewSubmission,
+} from '../utils/realtimeProofingSync';
+import {
   AdminGalleryRecord,
+  AdminUser,
   DriveStatusResponse,
   FavoriteSubmission,
   GalleryHeaderStyle,
@@ -65,6 +70,15 @@ export interface GalleryMutationPayload {
   allowZipDownload?: boolean;
   passcode?: string;
   expiresAt?: string;
+  // Pixieset Feature Extensions
+  sets?: string[];
+  downloadPin?: string;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
+  coverLayout?: 'full-bleed' | 'split-cover' | 'minimal';
+  status?: 'draft' | 'published' | 'archived';
+  linkEnabled?: boolean;
+  preventScreenshots?: boolean;
 }
 
 function getStoredGalleryToken(sessionId: string): string | null {
@@ -101,6 +115,66 @@ export function setSavedAdminPasscode(passcode: string | null): void {
   } catch {
     // Ignore storage errors
   }
+}
+
+const ADMIN_USER_STORAGE_KEY = 'pp256_admin_user_v1';
+
+export const DEFAULT_ADMIN_PROFILES: AdminUser[] = [
+  {
+    id: 'kibalama-paul',
+    name: 'Kibalama Paul',
+    email: 'kibalamapaul70@gmail.com',
+    role: 'Lead Photographer',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80',
+    authProvider: 'google',
+  },
+  {
+    id: 'studio-director',
+    name: 'Paul Photography 256 Studio',
+    email: 'paulphotography256@gmail.com',
+    role: 'Studio Manager',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80',
+    authProvider: 'google',
+  },
+  {
+    id: 'studio-retoucher',
+    name: 'Studio Retoucher & Colorist',
+    email: 'retouching@paulphotography256.com',
+    role: 'Retoucher',
+    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=160&q=80',
+    authProvider: 'google',
+  },
+];
+
+export function getSavedAdminUser(): AdminUser | null {
+  try {
+    const raw =
+      window.sessionStorage.getItem(ADMIN_USER_STORAGE_KEY) ||
+      window.localStorage.getItem(ADMIN_USER_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.id === 'paul-godfrey' || parsed.id === 'kibalama paul' || parsed.name === 'Paul Godfrey') {
+        parsed.id = 'kibalama-paul';
+        parsed.name = 'Kibalama Paul';
+        parsed.email = 'kibalamapaul70@gmail.com';
+        setSavedAdminUser(parsed);
+      }
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+export function setSavedAdminUser(user: AdminUser | null): void {
+  try {
+    if (!user) {
+      window.sessionStorage.removeItem(ADMIN_USER_STORAGE_KEY);
+      window.localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
+    } else {
+      window.sessionStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(user));
+      window.localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(user));
+    }
+  } catch {}
 }
 
 /**
@@ -206,7 +280,18 @@ export async function submitFavoriteSelections(
     });
 
     if (response.ok) {
-      return (await response.json()) as SubmitFavoritesResponse;
+      const data = (await response.json()) as SubmitFavoritesResponse;
+      try {
+        broadcastNewSubmission({
+          submissionId: data.submissionId,
+          timestamp: data.timestamp,
+          status: 'new',
+          loggedToSheets: Boolean(data.loggedToSheets),
+          emailSent: Boolean(data.emailSent),
+          ...payload,
+        });
+      } catch (_) {}
+      return data;
     }
 
     const errData = await response.json().catch(() => null);
@@ -317,6 +402,9 @@ export async function adminCreateGallery(
           data.gallery,
           ...local.filter((g) => g.sessionId !== data.gallery.sessionId),
         ]);
+        try {
+          broadcastGalleryChange('create', data.gallery);
+        } catch (_) {}
         return data.gallery;
       }
     }
@@ -392,6 +480,9 @@ export async function adminUpdateGallery(
             g.sessionId === sessionId ? { ...g, ...data.gallery } : g
           )
         );
+        try {
+          broadcastGalleryChange('update', data.gallery);
+        } catch (_) {}
         return data.gallery;
       }
     }
@@ -421,6 +512,9 @@ export async function adminDeleteGallery(
         headers: adminHeaders(passcode),
       }
     );
+    try {
+      broadcastGalleryChange('delete', { sessionId } as AdminGalleryRecord);
+    } catch (_) {}
   } catch (err) {
     console.warn('[Admin Galleries] Delete API error, deleting locally:', err);
   }
@@ -431,13 +525,17 @@ export async function adminDeleteGallery(
 export async function adminUploadPhotos(
   passcode: string,
   sessionId: string,
-  files: File[]
+  files: File[],
+  targetSet?: string
 ): Promise<{
   gallery: AdminGalleryRecord;
   uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
 }> {
   try {
     const formData = new FormData();
+    if (targetSet) {
+      formData.append('set', targetSet);
+    }
     for (const file of files) {
       // 1. Pristine original full-resolution file (for client download)
       formData.append('photos', file, file.name);
@@ -477,6 +575,9 @@ export async function adminUploadPhotos(
         setLocalStoredGalleries(
           local.map((g) => (g.sessionId === sessionId ? { ...g, ...data.gallery } : g))
         );
+        try {
+          broadcastGalleryChange('photos_uploaded', data.gallery);
+        } catch (_) {}
         return data;
       }
     }

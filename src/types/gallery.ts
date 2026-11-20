@@ -8,7 +8,7 @@ export type GalleryThemeId =
   | 'warm-monograph'
   | 'bento-grid';
 
-export type GalleryHeaderStyle = 'editorial' | 'split-cover';
+export type GalleryHeaderStyle = 'editorial' | 'split-cover' | 'full-bleed' | 'minimal';
 
 export type SubmissionStatus = 'new' | 'retouching' | 'delivered';
 
@@ -34,6 +34,7 @@ export interface PhotoItem {
   previewSizeBytes?: number;
   storage?: 'google-drive' | 'local' | 'sample' | 'r2';
   exif?: PhotoExif;
+  set?: string; // Pixieset sub-gallery/set: e.g. "Highlights", "Ceremony", "Portraits"
 }
 
 export interface DriveStatusResponse {
@@ -63,11 +64,31 @@ export interface GallerySession {
   createdAt?: string;
   source?: 'mock' | 'drive' | 'sample' | 'studio';
   photos: PhotoItem[];
+  // Pixieset Feature Extensions
+  sets?: string[]; // e.g. ["Highlights", "Getting Ready", "Ceremony", "Reception", "Portraits"]
+  downloadPin?: string; // 4-digit PIN for client download protection (e.g. "4829")
+  watermarkEnabled?: boolean; // Displays proofing watermark on web viewing
+  watermarkText?: string; // Custom watermark label: "PAUL PHOTOGRAPHY 256"
+  coverLayout?: 'full-bleed' | 'split-cover' | 'minimal';
+  status?: 'draft' | 'published' | 'archived';
+  linkEnabled?: boolean;
+  preventScreenshots?: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Lead Photographer' | 'Studio Manager' | 'Retoucher' | 'Assistant' | 'Google Studio Admin' | string;
+  avatarUrl?: string;
+  authProvider: 'passcode' | 'google';
+  lastActive?: string;
 }
 
 export interface AdminGalleryRecord extends GallerySession {
   passcode?: string;
   submissionCount?: number;
+  viewCount?: number;
 }
 
 export interface GalleryDesignPreset {
@@ -94,7 +115,10 @@ export interface FavoriteSubmission {
   sessionName: string;
   clientName: string;
   clientEmail: string;
+  clientPhone?: string;
   sessionNotes?: string;
+  notes?: string;
+  notesByPhotoId?: Record<string, string>;
   selectedPhotos: PhotoSelectionDetail[];
   submittedAt: string;
 }
@@ -103,8 +127,8 @@ export interface StoredSubmissionRecord extends FavoriteSubmission {
   submissionId: string;
   timestamp: string;
   status: SubmissionStatus;
-  loggedToSheets: boolean;
-  emailSent: boolean;
+  loggedToSheets?: boolean;
+  emailSent?: boolean;
 }
 
 export interface SubmitFavoritesResponse {

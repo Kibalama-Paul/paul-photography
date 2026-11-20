@@ -22,7 +22,7 @@ import {
   Settings, FileJson, Pencil, Star, X, Check, BadgeCheck, Hourglass,
   FileText, Printer, FileDown, Receipt, Sparkles, Film, Video,
   ArrowUp, ArrowDown, Play, Users, Globe, Smartphone, Monitor, Tablet as TabletIcon,
-  Search, Activity, Radio
+  Search, Activity, Radio, Camera
 } from 'lucide-react';
 
 interface AdminDashboardPageProps {
@@ -722,6 +722,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
       {/* Main Tabs Navigation */}
       <div className="flex flex-wrap gap-2 mb-8 border-b border-white/10 pb-4">
+        <a
+          href="/admin-selection"
+          className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 text-white shadow-lg hover:brightness-110"
+        >
+          <Camera className="w-4 h-4" />
+          <span>Client Proofing &amp; Galleries (Pixieset Studio)</span>
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+        </a>
+
         <button
           onClick={() => setActiveTab('upload')}
           className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all ${activeTab === 'upload'

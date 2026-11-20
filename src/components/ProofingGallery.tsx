@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, KeyRound, Loader2, Lock } from 'lucide-react';
+import {
+  AlertCircle,
+  KeyRound,
+  Link2Off,
+  Loader2,
+  Lock,
+  MessageCircle,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import { getGalleryThemeClasses } from '../data/galleryThemes';
 import {
   fetchGallerySession,
@@ -12,10 +21,19 @@ import {
   GalleryFilter,
   GalleryLayoutMode,
   GallerySession,
+  PhotoItem,
 } from '../types/gallery';
+import { downloadSinglePhoto } from '../utils/downloadHelpers';
+import { broadcastNewSubmission } from '../utils/realtimeProofingSync';
 import { FavoritesBar } from './FavoritesBar';
 import { GalleryGrid } from './GalleryGrid';
 import { LightboxModal } from './LightboxModal';
+import { PixiesetCompareModal } from './PixiesetCompareModal';
+import { PixiesetDownloadModal } from './PixiesetDownloadModal';
+import { PixiesetPinModal } from './PixiesetPinModal';
+import { PixiesetShareModal } from './PixiesetShareModal';
+import { PixiesetSlideshowModal } from './PixiesetSlideshowModal';
+import { ScreenshotGuard } from './ScreenshotGuard';
 import { SubmitFavoritesModal } from './SubmitFavoritesModal';
 
 export interface ProofingGalleryProps {
@@ -49,9 +67,20 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [notesByPhotoId, setNotesByPhotoId] = useState<Record<string, string>>({});
   const [activeFilter, setActiveFilter] = useState<GalleryFilter>('all');
+  const [activeSet, setActiveSet] = useState<string>('all');
   const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>('masonry');
   const [lightboxPhotoId, setLightboxPhotoId] = useState<string | null>(null);
+
+  // Modals state
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideshowStartPhotoId, setSlideshowStartPhotoId] = useState<string | null>(null);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareLeftPhotoId, setCompareLeftPhotoId] = useState<string | null>(null);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isDownloadPinUnlocked, setIsDownloadPinUnlocked] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -114,9 +143,27 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
     onFavoritesCountChange?.(selectedPhotos.length);
   }, [selectedPhotos.length, onFavoritesCountChange]);
 
+  const availableSets = useMemo(() => {
+    const counts = new Map<string, number>();
+    sessionPhotos.forEach((p) => {
+      const s = p.set || 'Highlights';
+      counts.set(s, (counts.get(s) || 0) + 1);
+    });
+    if (session?.sets && Array.isArray(session.sets)) {
+      session.sets.forEach((s) => {
+        if (!counts.has(s)) counts.set(s, 0);
+      });
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [sessionPhotos, session?.sets]);
+
   const visiblePhotos = useMemo(() => {
-    return activeFilter === 'favorites' ? selectedPhotos : sessionPhotos;
-  }, [sessionPhotos, activeFilter, selectedPhotos]);
+    let list = activeFilter === 'favorites' ? selectedPhotos : sessionPhotos;
+    if (activeSet !== 'all') {
+      list = list.filter((p) => (p.set || 'Highlights') === activeSet);
+    }
+    return list;
+  }, [sessionPhotos, activeFilter, selectedPhotos, activeSet]);
 
   const coverPhoto = useMemo(() => {
     if (sessionPhotos.length === 0) return undefined;
@@ -171,6 +218,28 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
     }
   };
 
+  const handleQuickDownload = async (photo: PhotoItem) => {
+    if (session?.downloadPin?.trim() && !isDownloadPinUnlocked) {
+      setIsPinModalOpen(true);
+      return;
+    }
+    try {
+      await downloadSinglePhoto(photo);
+    } catch (err) {
+      console.error('[Quick download error]', err);
+    }
+  };
+
+  const handleOpenSlideshow = (photoId?: string) => {
+    setSlideshowStartPhotoId(photoId || visiblePhotos[0]?.id || null);
+    setIsSlideshowOpen(true);
+  };
+
+  const handleOpenCompare = (photoId?: string) => {
+    setCompareLeftPhotoId(photoId || visiblePhotos[0]?.id || null);
+    setIsCompareOpen(true);
+  };
+
   if (isLoading) {
     return (
       <section className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 px-5 py-24 text-zinc-500">
@@ -194,6 +263,78 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
 
   const theme = session.theme || 'editorial-light';
   const t = getGalleryThemeClasses(theme);
+
+  // If photographer or studio administrator disabled this client link
+  if (session.linkEnabled === false || session.status === 'archived') {
+    return (
+      <div className={`min-h-[calc(100vh-140px)] flex items-center justify-center px-4 py-16 ${t.pageBg}`}>
+        <div
+          className={`mx-auto max-w-lg rounded-2xl border p-8 sm:p-10 text-center shadow-lg ${t.surface} ${t.border}`}
+        >
+          <div className="mx-auto mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-8 ring-rose-50/50">
+            <Link2Off size={30} />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
+            <span>Link Inactive</span>
+          </div>
+
+          <h1 className={`mt-3 font-serif text-2xl sm:text-3xl font-medium ${t.textPrimary}`}>
+            Gallery Link Disabled
+          </h1>
+          <p className={`mt-3 text-sm leading-relaxed ${t.textSecondary}`}>
+            Client proofing access to <strong>&ldquo;{session.sessionName}&rdquo;</strong> has been deactivated by the photographer or studio administrator.
+          </p>
+
+          <div className={`mt-6 rounded-xl border p-4 text-left ${t.surfaceMuted} ${t.border}`}>
+            <p className={`text-[11px] font-semibold uppercase tracking-wider ${t.textMuted}`}>
+              Studio Contact Information
+            </p>
+            <div className="mt-2.5 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className={t.textSecondary}>Lead Photographer:</span>
+                <span className={`font-medium ${t.textPrimary}`}>Kibalama Paul</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={t.textSecondary}>Studio:</span>
+                <span className={`font-medium ${t.textPrimary}`}>Paul Photography 256</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={t.textSecondary}>Direct Email:</span>
+                <a
+                  href="mailto:kibalamapaul70@gmail.com"
+                  className="font-mono text-zinc-900 underline hover:text-black dark:text-zinc-200"
+                >
+                  kibalamapaul70@gmail.com
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="https://wa.me/256700000000?text=Hello%20Paul%20Photography%20256,%20I%20am%20inquiring%20about%20my%20client%20proofing%20gallery%20link."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[42px] w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-xs"
+            >
+              <MessageCircle size={15} />
+              <span>Contact Photographer on WhatsApp</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className={`inline-flex min-h-[42px] w-full sm:w-auto items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-xs font-semibold transition-colors ${t.border} ${t.surface} ${t.textPrimary} hover:${t.surfaceMuted}`}
+            >
+              <RefreshCw size={14} />
+              <span>Refresh Gallery Link</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (session.isLocked) {
     return (
@@ -264,32 +405,77 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
     );
   }
 
+  const isDownloadPermitted =
+    Boolean(session.allowZipDownload) &&
+    (!session.downloadPin?.trim() || isDownloadPinUnlocked);
+
   return (
-    <div className={`min-h-[calc(100vh-140px)] transition-colors duration-200 ${t.pageBg}`}>
-      <section
-        className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
-        aria-label="Client Photo Proofing"
-      >
-        <FavoritesBar
-          sessionName={session.sessionName}
-          clientDisplayName={session.clientDisplayName}
-          photographerName={session.photographerName}
-          shootDate={session.shootDate}
-          category={session.category}
-          instructions={session.instructions}
-          totalCount={sessionPhotos.length}
-          favoritesCount={selectedPhotos.length}
-          maxSelections={session.maxSelections}
-          activeFilter={activeFilter}
-          layoutMode={layoutMode}
-          theme={theme}
-          headerStyle={session.headerStyle}
-          coverPhoto={coverPhoto}
-          onFilterChange={setActiveFilter}
-          onLayoutModeChange={setLayoutMode}
-          onOpenSubmit={() => setIsSubmitOpen(true)}
-          showSubmitButton={showSubmitButton}
-        />
+    <ScreenshotGuard
+      enabled={session.preventScreenshots !== false}
+      watermarkText={session.watermarkText || 'Paul Photography 256'}
+    >
+      <div className={`min-h-[calc(100vh-140px)] transition-colors duration-200 ${t.pageBg}`}>
+        <section
+          className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8"
+          aria-label="Client Photo Proofing"
+        >
+          <FavoritesBar
+            sessionName={session.sessionName}
+            clientDisplayName={session.clientDisplayName}
+            photographerName={session.photographerName}
+            shootDate={session.shootDate}
+            category={session.category}
+            instructions={session.instructions}
+            totalCount={sessionPhotos.length}
+            favoritesCount={selectedPhotos.length}
+            maxSelections={session.maxSelections}
+            activeFilter={activeFilter}
+            layoutMode={layoutMode}
+            theme={theme}
+            headerStyle={session.headerStyle}
+            coverPhoto={coverPhoto}
+            onFilterChange={setActiveFilter}
+            onLayoutModeChange={setLayoutMode}
+            onOpenSubmit={() => setIsSubmitOpen(true)}
+            onOpenShare={() => setIsShareOpen(true)}
+            onOpenDownload={isDownloadPermitted ? () => setIsDownloadOpen(true) : undefined}
+            onOpenSlideshow={() => handleOpenSlideshow()}
+            onOpenCompare={() => handleOpenCompare()}
+            showSubmitButton={showSubmitButton}
+          />
+
+        {/* Pixieset Sets / Collections Navigation Tabs */}
+        {availableSets.length > 1 && (
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setActiveSet('all')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                activeSet === 'all'
+                  ? `${t.tabActiveBg} shadow-xs ring-1 ring-black/10`
+                  : `${t.surface} ${t.textSecondary} hover:${t.textPrimary} border ${t.border}`
+              }`}
+            >
+              <span>All Sets</span>
+              <span className="font-mono text-[11px] opacity-75">({sessionPhotos.length})</span>
+            </button>
+            {availableSets.map((s) => (
+              <button
+                key={s.name}
+                type="button"
+                onClick={() => setActiveSet(s.name)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                  activeSet === s.name
+                    ? `${t.tabActiveBg} shadow-xs ring-1 ring-black/10`
+                    : `${t.surface} ${t.textSecondary} hover:${t.textPrimary} border ${t.border}`
+                }`}
+              >
+                <span>{s.name}</span>
+                <span className="font-mono text-[11px] opacity-75">({s.count})</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {limitNotice && (
           <div
@@ -307,44 +493,135 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
           </div>
         )}
 
+        {/* Main Photo Grid */}
         <GalleryGrid
           photos={visiblePhotos}
           favoriteSet={favoriteSet}
           notesByPhotoId={notesByPhotoId}
           layoutMode={layoutMode}
           theme={theme}
+          watermarkEnabled={Boolean(session.watermarkEnabled)}
+          watermarkText={session.watermarkText}
+          allowDownload={isDownloadPermitted}
           onToggleFavorite={handleToggleFavorite}
           onUpdateNote={handleUpdateNote}
           onOpenLightbox={setLightboxPhotoId}
+          onOpenCompare={(id) => handleOpenCompare(id)}
+          onQuickDownload={isDownloadPermitted ? handleQuickDownload : undefined}
           emptyMessage="You have not marked any favorite frames yet. Click the heart button on any photograph to add it to your selection."
           onShowAll={
             activeFilter === 'favorites' ? () => setActiveFilter('all') : undefined
           }
         />
 
+        {/* Lightbox Modal */}
         <LightboxModal
           photos={visiblePhotos}
           activePhotoId={lightboxPhotoId}
           favoriteSet={favoriteSet}
           notesByPhotoId={notesByPhotoId}
-          allowDownload={Boolean(session.allowZipDownload)}
+          allowDownload={isDownloadPermitted}
+          watermarkEnabled={Boolean(session.watermarkEnabled)}
+          watermarkText={session.watermarkText}
           onClose={() => setLightboxPhotoId(null)}
           onSelectPhoto={setLightboxPhotoId}
           onToggleFavorite={handleToggleFavorite}
           onUpdateNote={handleUpdateNote}
+          onOpenSlideshow={(id) => handleOpenSlideshow(id)}
+          onOpenCompare={(id) => handleOpenCompare(id)}
         />
 
+        {/* Pixieset Slideshow Modal */}
+        <PixiesetSlideshowModal
+          isOpen={isSlideshowOpen}
+          photos={visiblePhotos}
+          initialPhotoId={slideshowStartPhotoId}
+          favoriteSet={favoriteSet}
+          onToggleFavorite={handleToggleFavorite}
+          onClose={() => setIsSlideshowOpen(false)}
+        />
+
+        {/* Pixieset Compare Modal */}
+        <PixiesetCompareModal
+          isOpen={isCompareOpen}
+          photos={sessionPhotos}
+          initialLeftPhotoId={compareLeftPhotoId}
+          favoriteSet={favoriteSet}
+          notesByPhotoId={notesByPhotoId}
+          onToggleFavorite={handleToggleFavorite}
+          onClose={() => setIsCompareOpen(false)}
+        />
+
+        {/* Pixieset Download Modal */}
+        <PixiesetDownloadModal
+          isOpen={isDownloadOpen}
+          onClose={() => setIsDownloadOpen(false)}
+          sessionName={session.sessionName}
+          allPhotos={sessionPhotos}
+          favoritePhotos={selectedPhotos}
+          allowZipDownload={Boolean(session.allowZipDownload)}
+          downloadPin={session.downloadPin}
+          isPinUnlocked={isDownloadPinUnlocked}
+          onPinUnlock={() => setIsDownloadPinUnlocked(true)}
+        />
+
+        {/* Submit Favorites Modal */}
         <SubmitFavoritesModal
           isOpen={isSubmitOpen}
           sessionId={session.sessionId}
           sessionName={session.sessionName}
           selectedPhotos={selectedPhotos}
           notesByPhotoId={notesByPhotoId}
-          allowZipDownload={Boolean(session.allowZipDownload)}
+          allowZipDownload={isDownloadPermitted}
           onClose={() => setIsSubmitOpen(false)}
-          onSubmit={submitFavoriteSelections}
+          onSubmit={async (payload) => {
+            const result = await submitFavoriteSelections(payload);
+            // Broadcast instantly across all devices and accounts
+            try {
+              broadcastNewSubmission({
+                submissionId: result.submissionId || `sub_${Date.now()}`,
+                sessionId: payload.sessionId,
+                sessionName: payload.sessionName,
+                clientName: payload.clientName,
+                clientEmail: payload.clientEmail,
+                clientPhone: payload.clientPhone,
+                status: 'new',
+                submittedAt: payload.submittedAt || new Date().toISOString(),
+                timestamp: result.timestamp || new Date().toISOString(),
+                selectedPhotos: payload.selectedPhotos,
+                notesByPhotoId: payload.notesByPhotoId,
+                sessionNotes: payload.sessionNotes,
+                loggedToSheets: Boolean(result.loggedToSheets),
+                emailSent: Boolean(result.emailSent),
+              }).catch(() => {});
+            } catch (_) {}
+            return result;
+          }}
         />
+
+        {/* Pixieset Share Modal */}
+        <PixiesetShareModal
+          isOpen={isShareOpen}
+          onClose={() => setIsShareOpen(false)}
+          sessionId={session.sessionId}
+          sessionName={session.sessionName}
+          clientDisplayName={session.clientDisplayName}
+        />
+
+        {/* Pixieset Download PIN Modal */}
+        {session.downloadPin?.trim() && (
+          <PixiesetPinModal
+            isOpen={isPinModalOpen}
+            onClose={() => setIsPinModalOpen(false)}
+            expectedPin={session.downloadPin}
+            onSuccess={() => {
+              setIsDownloadPinUnlocked(true);
+              setIsPinModalOpen(false);
+            }}
+          />
+        )}
       </section>
     </div>
+    </ScreenshotGuard>
   );
 };

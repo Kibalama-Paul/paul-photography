@@ -2,11 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  Columns2,
   Download,
   Heart,
   ImageOff,
   Loader2,
+  Maximize2,
   MessageSquare,
+  Minimize2,
+  Play,
   X,
   ZoomIn,
   ZoomOut,
@@ -20,10 +24,14 @@ interface LightboxModalProps {
   favoriteSet: Set<string>;
   notesByPhotoId: Record<string, string>;
   allowDownload?: boolean;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
   onClose: () => void;
   onSelectPhoto: (photoId: string) => void;
   onToggleFavorite: (photoId: string) => void;
   onUpdateNote: (photoId: string, note: string) => void;
+  onOpenSlideshow?: (photoId: string) => void;
+  onOpenCompare?: (photoId: string) => void;
 }
 
 const ZOOM_STEPS = [1, 1.75, 2.5];
@@ -34,16 +42,21 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   favoriteSet,
   notesByPhotoId,
   allowDownload = false,
+  watermarkEnabled = false,
+  watermarkText = 'Paul Photography 256',
   onClose,
   onSelectPhoto,
   onToggleFavorite,
   onUpdateNote,
+  onOpenSlideshow,
+  onOpenCompare,
 }) => {
   const [zoomIndex, setZoomIndex] = useState(0);
   const [panOrigin, setPanOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [imgError, setImgError] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const currentIndex = photos.findIndex((p) => p.id === activePhotoId);
   const activePhoto = currentIndex >= 0 ? photos[currentIndex] : null;
@@ -72,6 +85,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
   useEffect(() => {
     if (!activePhoto) return;
 
@@ -93,6 +116,8 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         onSelectPhoto(photos[currentIndex - 1].id);
       } else if (e.key.toLowerCase() === 'f') {
         onToggleFavorite(activePhoto.id);
+      } else if (e.key.toLowerCase() === 'c' && onOpenCompare) {
+        onOpenCompare(activePhoto.id);
       } else if (e.key === '+' || e.key === '=') {
         setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1));
       } else if (e.key === '-') {
@@ -108,7 +133,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activePhoto, currentIndex, photos, onClose, onSelectPhoto, onToggleFavorite]);
+  }, [activePhoto, currentIndex, photos, onClose, onSelectPhoto, onToggleFavorite, onOpenCompare]);
 
   if (!activePhoto) return null;
 
@@ -145,96 +170,129 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 text-zinc-100 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 text-zinc-100 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-label={`Viewing ${activePhoto.filename}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
-          <span className="font-mono font-medium text-white">
-            {activePhoto.filename}
-          </span>
-          {activePhoto.title && (
-            <>
-              <span aria-hidden="true" className="text-zinc-500">
-                &middot;
-              </span>
-              <span className="truncate text-zinc-300">{activePhoto.title}</span>
-            </>
-          )}
-          <span aria-hidden="true" className="text-zinc-500">
-            &middot;
-          </span>
+      {/* Top Lightbox Bar */}
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3">
           <span className="font-mono text-xs tabular-nums text-zinc-400">
             {currentIndex + 1} / {photos.length}
           </span>
+          <span className="hidden font-mono text-xs font-medium text-white sm:inline">
+            {activePhoto.filename}
+          </span>
+          {activePhoto.set && (
+            <span className="hidden sm:inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-300">
+              {activePhoto.set}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Slideshow button */}
+          {onOpenSlideshow && (
+            <button
+              type="button"
+              onClick={() => onOpenSlideshow(activePhoto.id)}
+              title="Play Slideshow from here"
+              className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <Play size={13} className="fill-current" />
+              <span className="hidden sm:inline">Slideshow</span>
+            </button>
+          )}
+
+          {/* Compare button */}
+          {onOpenCompare && photos.length >= 2 && (
+            <button
+              type="button"
+              onClick={() => onOpenCompare(activePhoto.id)}
+              title="Compare side-by-side with another photo (C)"
+              className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <Columns2 size={13} />
+              <span className="hidden sm:inline">Compare</span>
+            </button>
+          )}
+
+          {/* Zoom Control */}
+          <button
+            type="button"
+            onClick={handleCycleZoom}
+            aria-label={`Zoom photo (${zoomScale}x)`}
+            title="Cycle zoom (+/-)"
+            className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
+          >
+            {zoomScale > 1 ? <ZoomOut size={14} /> : <ZoomIn size={14} />}
+            <span className="font-mono">{zoomScale}x</span>
+          </button>
+
+          {/* Fullscreen Control */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label="Toggle Fullscreen"
+            title="Toggle fullscreen"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
+
+          {/* Direct Download Button */}
           {allowDownload && (
             <button
               type="button"
               onClick={handleDownloadPhoto}
               disabled={isDownloading}
-              title="Download Original High-Resolution Photo"
-              className="inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-60"
+              aria-label="Download original photo"
+              title="Download original JPG"
+              className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50"
             >
               {isDownloading ? (
-                <Loader2 size={15} className="animate-spin text-white" />
-              ) : downloadSuccess ? (
-                <Download size={15} className="text-emerald-400" />
+                <Loader2 size={14} className="animate-spin text-zinc-300" />
               ) : (
-                <Download size={15} />
+                <Download size={14} />
               )}
               <span className="hidden sm:inline">
-                {isDownloading ? 'Downloading...' : downloadSuccess ? 'Saved Original' : 'Download Original'}
+                {downloadSuccess ? 'Saved!' : 'Download'}
               </span>
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={handleCycleZoom}
-            title="Cycle Zoom (+/-)"
-            className="inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
-          >
-            {zoomScale > 1 ? <ZoomOut size={16} /> : <ZoomIn size={16} />}
-            <span className="font-mono tabular-nums">
-              {Math.round(zoomScale * 100)}%
-            </span>
-          </button>
-
+          {/* Favorite Heart Button */}
           <button
             type="button"
             onClick={() => onToggleFavorite(activePhoto.id)}
             aria-pressed={isFavorite}
-            title="Toggle Favorite (F)"
-            className={`inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+            aria-label={isFavorite ? 'Remove from favorites' : 'Mark as favorite'}
+            title="Toggle favorite (F)"
+            className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors ${
               isFavorite
-                ? 'border-rose-600 bg-rose-600 text-white'
+                ? 'border-rose-600 bg-rose-600 text-white shadow-md'
                 : 'border-white/15 bg-white/10 text-white hover:bg-white/20'
             }`}
           >
-            <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
+            <Heart size={15} className={isFavorite ? 'fill-white' : ''} />
             <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
           </button>
 
+          {/* Close Lightbox */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close lightbox"
             title="Close (Esc)"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
           >
             <X size={18} />
           </button>
         </div>
       </div>
 
+      {/* Main Image Area with Prev/Next Navigation */}
       <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-4 sm:px-16">
         {hasPrev && (
           <button
@@ -250,7 +308,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         <div
           onClick={handleCycleZoom}
           onMouseMove={handleMouseMove}
-          className={`flex max-h-full max-w-full items-center justify-center overflow-hidden rounded-lg ${
+          className={`relative flex max-h-full max-w-full items-center justify-center overflow-hidden rounded-lg ${
             zoomScale > 1 ? 'cursor-zoom-out' : 'cursor-zoom-in'
           }`}
         >
@@ -260,17 +318,32 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
               <span className="font-mono text-xs">{activePhoto.filename}</span>
             </div>
           ) : (
-            <img
-              src={(zoomScale > 1 && activePhoto.fullUrl) ? activePhoto.fullUrl : (activePhoto.thumbnailUrl || activePhoto.fullUrl)}
-              alt={activePhoto.title || activePhoto.filename}
-              referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
-              className="max-h-[calc(100vh-190px)] max-w-full select-none object-contain transition-transform duration-200 ease-out"
-              style={{
-                transform: `scale(${zoomScale})`,
-                transformOrigin: `${panOrigin.x}% ${panOrigin.y}%`,
-              }}
-            />
+            <>
+              <img
+                src={(zoomScale > 1 && activePhoto.fullUrl) ? activePhoto.fullUrl : (activePhoto.thumbnailUrl || activePhoto.fullUrl)}
+                alt={activePhoto.title || activePhoto.filename}
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+                onDragStart={(e) => e.preventDefault()}
+                className="max-h-[calc(100vh-190px)] max-w-full select-none object-contain transition-transform duration-200 ease-out pointer-events-none"
+                style={{
+                  transform: `scale(${zoomScale})`,
+                  transformOrigin: `${panOrigin.x}% ${panOrigin.y}%`,
+                }}
+              />
+              {watermarkEnabled && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden opacity-25 select-none"
+                >
+                  <span className="transform -rotate-25 font-mono text-base sm:text-2xl font-bold tracking-widest text-white/90 drop-shadow-lg whitespace-nowrap uppercase">
+                    &copy; {watermarkText}
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -286,6 +359,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         )}
       </div>
 
+      {/* Bottom Notes & EXIF Bar */}
       <div className="border-t border-white/10 px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex flex-1 items-center gap-2.5 rounded-lg border border-white/15 bg-white/5 px-3.5 py-2">

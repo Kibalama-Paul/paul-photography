@@ -399,14 +399,30 @@ export default async function handler(req, res) {
       console.error('[/api/favorites] Email error:', emailResult.reason);
     }
 
-    const savedLocally = saveLocalSubmission({
+    const fullSubmissionRecord = {
       submissionId,
       timestamp,
       status: 'new',
       loggedToSheets,
       emailSent,
       ...cleanPayload,
-    });
+    };
+
+    const savedLocally = saveLocalSubmission(fullSubmissionRecord);
+
+    // Broadcast in real time to all connected studio admins on any device or account
+    try {
+      fetch('https://ntfy.sh/paul_photo_proofing_submissions_256_dirfcqs1f', {
+        method: 'POST',
+        body: JSON.stringify(fullSubmissionRecord),
+        headers: {
+          Title: `New Selection: ${cleanPayload.clientName || 'Client'}`,
+          Tags: 'camera_flash,heart',
+          Priority: 'high',
+          Cache: 'yes',
+        },
+      }).catch(() => {});
+    } catch (_) {}
 
     const deliveries = [];
     if (loggedToSheets) deliveries.push('logged to Google Sheets');

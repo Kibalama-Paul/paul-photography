@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
   Check,
+  Columns2,
+  Download,
   Expand,
   Heart,
   ImageOff,
@@ -20,9 +22,14 @@ interface GalleryGridProps {
   notesByPhotoId: Record<string, string>;
   layoutMode: GalleryLayoutMode;
   theme?: GalleryThemeId;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
+  allowDownload?: boolean;
   onToggleFavorite: (photoId: string) => void;
   onUpdateNote: (photoId: string, note: string) => void;
   onOpenLightbox: (photoId: string) => void;
+  onOpenCompare?: (photoId: string) => void;
+  onQuickDownload?: (photo: PhotoItem) => void;
   emptyMessage: string;
   onShowAll?: () => void;
 }
@@ -30,12 +37,16 @@ interface GalleryGridProps {
 interface PhotoMediaProps {
   photo: PhotoItem;
   layoutMode: GalleryLayoutMode;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
   onOpenLightbox: (photoId: string) => void;
 }
 
 const PhotoMedia: React.FC<PhotoMediaProps> = ({
   photo,
   layoutMode,
+  watermarkEnabled = false,
+  watermarkText = 'Paul Photography 256',
   onOpenLightbox,
 }) => {
   const [hasError, setHasError] = useState(false);
@@ -61,10 +72,24 @@ const PhotoMedia: React.FC<PhotoMediaProps> = ({
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setHasError(true)}
-          className={`block w-full transition-transform duration-200 ease-out group-hover:scale-[1.015] ${
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          className={`block w-full transition-transform duration-200 ease-out group-hover:scale-[1.015] pointer-events-none select-none ${
             layoutMode === 'grid' ? 'h-full object-cover' : 'h-auto object-cover'
           }`}
         />
+      )}
+
+      {watermarkEnabled && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden opacity-30 select-none"
+        >
+          <span className="transform -rotate-25 font-mono text-xs sm:text-sm font-semibold tracking-widest text-white/90 drop-shadow-md whitespace-nowrap uppercase">
+            &copy; {watermarkText}
+          </span>
+        </div>
       )}
 
       <div
@@ -88,9 +113,14 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
   notesByPhotoId,
   layoutMode,
   theme = 'editorial-light',
+  watermarkEnabled = false,
+  watermarkText = 'Paul Photography 256',
+  allowDownload = false,
   onToggleFavorite,
   onUpdateNote,
   onOpenLightbox,
+  onOpenCompare,
+  onQuickDownload,
   emptyMessage,
   onShowAll,
 }) => {
@@ -120,7 +150,7 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
           <button
             type="button"
             onClick={onShowAll}
-            className={`inline-flex min-h-[40px] items-center justify-center whitespace-nowrap shrink-0 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${t.border} ${t.surface} ${t.textPrimary}`}
+            className={`inline-flex min-h-[40px] items-center justify-center whitespace-nowrap shrink-0 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${t.border} ${t.surface} ${t.textPrimary} hover:${t.surfaceMuted}`}
           >
             View All Photos
           </button>
@@ -156,9 +186,19 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
               <PhotoMedia
                 photo={photo}
                 layoutMode={layoutMode}
+                watermarkEnabled={watermarkEnabled}
+                watermarkText={watermarkText}
                 onOpenLightbox={onOpenLightbox}
               />
 
+              {/* Set Badge Tag */}
+              {photo.set && (
+                <span className="absolute top-3 left-3 rounded-full bg-black/60 backdrop-blur-xs px-2.5 py-0.5 text-[10px] font-medium text-white shadow-xs">
+                  {photo.set}
+                </span>
+              )}
+
+              {/* Top-Right Favorite Heart */}
               <button
                 type="button"
                 onClick={() => onToggleFavorite(photo.id)}
@@ -168,18 +208,19 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
                     ? `Remove ${photo.filename} from favorites`
                     : `Add ${photo.filename} to favorites`
                 }
-                className={`absolute top-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border transition-transform duration-150 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                className={`absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border transition-transform duration-150 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                   isFavorite
                     ? 'border-rose-600 bg-rose-600 text-white shadow-sm'
                     : 'border-white/30 bg-zinc-950/60 text-white backdrop-blur-xs hover:bg-zinc-950/80'
                 }`}
               >
-                <Heart size={18} className={isFavorite ? 'fill-white' : ''} />
+                <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-              <div className="min-w-0">
+            {/* Photo Info & Actions Bar */}
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+              <div className="min-w-0 flex-1">
                 <p
                   className={`truncate font-mono text-xs font-medium tabular-nums ${t.textPrimary}`}
                   title={photo.filename}
@@ -191,21 +232,49 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  isEditingNote ? setEditingNoteId(null) : openNoteEditor(photo.id)
-                }
-                aria-expanded={isEditingNote}
-                className={`inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  existingNote
-                    ? `${t.surfaceMuted} ${t.border} ${t.textPrimary}`
-                    : `${t.surface} ${t.border} ${t.textMuted}`
-                }`}
-              >
-                <MessageSquarePlus size={14} />
-                <span>{existingNote ? 'Edit Note' : 'Note'}</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Compare Button */}
+                {onOpenCompare && photos.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCompare(photo.id)}
+                    title={`Compare ${photo.filename} side-by-side`}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs transition-colors ${t.surface} ${t.border} ${t.textMuted} hover:${t.textPrimary}`}
+                  >
+                    <Columns2 size={13} />
+                  </button>
+                )}
+
+                {/* Quick Download Button */}
+                {allowDownload && onQuickDownload && (
+                  <button
+                    type="button"
+                    onClick={() => onQuickDownload(photo)}
+                    title={`Download ${photo.filename}`}
+                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs transition-colors ${t.surface} ${t.border} ${t.textMuted} hover:${t.textPrimary}`}
+                  >
+                    <Download size={13} />
+                  </button>
+                )}
+
+                {/* Retouch / Note Button */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    isEditingNote ? setEditingNoteId(null) : openNoteEditor(photo.id)
+                  }
+                  aria-expanded={isEditingNote}
+                  title="Add retouching instruction"
+                  className={`inline-flex min-h-[32px] items-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1 text-xs font-medium transition-colors ${
+                    existingNote
+                      ? `${t.surfaceMuted} ${t.border} ${t.textPrimary}`
+                      : `${t.surface} ${t.border} ${t.textMuted}`
+                  }`}
+                >
+                  <MessageSquarePlus size={13} />
+                  <span>{existingNote ? 'Edit Note' : 'Note'}</span>
+                </button>
+              </div>
             </div>
 
             {existingNote && !isEditingNote && (
@@ -237,7 +306,7 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
                   <button
                     type="button"
                     onClick={() => setEditingNoteId(null)}
-                    className={`inline-flex min-h-[34px] items-center gap-1 whitespace-nowrap shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${t.border} ${t.textMuted}`}
+                    className={`inline-flex min-h-[32px] items-center gap-1 whitespace-nowrap shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${t.border} ${t.textMuted}`}
                   >
                     <X size={13} />
                     <span>Cancel</span>
@@ -245,7 +314,7 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({
                   <button
                     type="button"
                     onClick={() => saveNoteEditor(photo.id)}
-                    className={`inline-flex min-h-[34px] items-center gap-1 whitespace-nowrap shrink-0 rounded-md px-3 py-1 text-xs font-medium ${t.primaryBtn}`}
+                    className={`inline-flex min-h-[32px] items-center gap-1 whitespace-nowrap shrink-0 rounded-md px-3 py-1 text-xs font-medium ${t.primaryBtn}`}
                   >
                     <Check size={13} />
                     <span>Save Note</span>

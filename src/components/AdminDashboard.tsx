@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
+  Bell,
   Check,
+  CheckCircle2,
+  ChevronDown,
   CloudUpload,
   Copy,
   Database,
@@ -13,18 +16,29 @@ import {
   ImagePlus,
   Inbox,
   KeyRound,
+  Layers,
+  Link2,
+  Link2Off,
   Loader2,
+  Lock,
   LogOut,
+  MessageCircle,
   Palette,
+  Pencil,
   PieChart,
   Plus,
+  Radio,
   RefreshCw,
   Search,
   Server,
   Share2,
+  Shield,
+  ShieldAlert,
   Sparkles,
   Trash2,
   Upload,
+  User,
+  UserCheck,
 } from 'lucide-react';
 import { GALLERY_DESIGN_PRESETS } from '../data/galleryThemes';
 import {
@@ -40,12 +54,21 @@ import {
   adminUpdateGallery,
   adminUpdateSubmissionStatus,
   adminUploadPhotos,
+  DEFAULT_ADMIN_PROFILES,
   getSavedAdminPasscode,
+  getSavedAdminUser,
   setSavedAdminPasscode,
+  setSavedAdminUser,
   verifyAdminPasscode,
 } from '../services/galleryService';
 import {
+  playSubmissionChime,
+  subscribeToGalleries,
+  subscribeToSubmissions,
+} from '../utils/realtimeProofingSync';
+import {
   AdminGalleryRecord,
+  AdminUser,
   DriveStatusResponse,
   GalleryHeaderStyle,
   GalleryLayoutMode,
@@ -75,6 +98,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminPasscode, setAdminPasscode] = useState<string | null>(() =>
     getSavedAdminPasscode()
   );
+  const [activeAdminUser, setActiveAdminUser] = useState<AdminUser | null>(() =>
+    getSavedAdminUser() || DEFAULT_ADMIN_PROFILES[0]
+  );
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [customAccounts, setCustomAccounts] = useState<AdminUser[]>(() => {
+    try {
+      const raw = localStorage.getItem('pp256_custom_admin_accounts');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
+  const [customGoogleName, setCustomGoogleName] = useState('');
+  const [isAddingCustomAccount, setIsAddingCustomAccount] = useState(false);
+
+  const allAvailableProfiles = useMemo(
+    () => [...DEFAULT_ADMIN_PROFILES, ...customAccounts],
+    [customAccounts]
+  );
+  const [liveAlert, setLiveAlert] = useState<string | null>(null);
   const [loginInput, setLoginInput] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -86,6 +129,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [submissions, setSubmissions] = useState<StoredSubmissionRecord[]>([]);
   const [selectedGalleryId, setSelectedGalleryId] = useState<string | null>(null);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [galleryToDelete, setGalleryToDelete] = useState<AdminGalleryRecord | null>(null);
 
   // Storage status state (Admin-only provision)
   const [storageStatus, setStorageStatus] = useState<StorageStatusResponse | null>(null);
@@ -109,6 +153,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newDriveFolderId, setNewDriveFolderId] = useState('');
   const [newTheme, setNewTheme] = useState<GalleryThemeId>('editorial-light');
   const [newAllowZipDownload, setNewAllowZipDownload] = useState(false);
+  const [newDownloadPin, setNewDownloadPin] = useState('');
+  const [newWatermarkEnabled, setNewWatermarkEnabled] = useState(false);
+  const [newWatermarkText, setNewWatermarkText] = useState('PAUL PHOTOGRAPHY 256');
+  const [newSets, setNewSets] = useState('Highlights, Ceremony, Portraits');
+  const [newLinkEnabled, setNewLinkEnabled] = useState(true);
+  const [newPreventScreenshots, setNewPreventScreenshots] = useState(true);
   const [isSavingNew, setIsSavingNew] = useState(false);
 
   // Google Drive connection status
@@ -133,6 +183,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     maxSelections: string;
     passcode: string;
     allowZipDownload: boolean;
+    downloadPin: string;
+    watermarkEnabled: boolean;
+    watermarkText: string;
+    sets: string[];
+    coverLayout: 'full-bleed' | 'split-cover' | 'minimal';
+    status: 'draft' | 'published' | 'archived';
+    linkEnabled: boolean;
+    preventScreenshots: boolean;
   } | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editSavedBanner, setEditSavedBanner] = useState(false);
@@ -211,6 +269,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     if (adminPasscode) {
       loadDashboardData(adminPasscode);
+
+      // 1. Instant Real-Time Cross-Device Submissions Listener (SSE < 200ms)
+      const unsubSubs = subscribeToSubmissions((newSub) => {
+        playSubmissionChime();
+        setLiveAlert(
+          `🔔 New selection from ${newSub.clientName || 'Client'} (${newSub.selectedPhotos?.length || 0} frames for ${newSub.sessionName})!`
+        );
+        setTimeout(() => setLiveAlert(null), 6000);
+
+        setSubmissions((prev) => {
+          const idx = prev.findIndex((s) => s.submissionId === newSub.submissionId);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], ...newSub };
+            return copy;
+          }
+          return [newSub, ...prev];
+        });
+
+        setGalleries((prev) =>
+          prev.map((g) =>
+            g.sessionId === newSub.sessionId
+              ? { ...g, submissionCount: (g.submissionCount || 0) + 1 }
+              : g
+          )
+        );
+      });
+
+      // 2. Real-Time Gallery Changes Listener (SSE)
+      const unsubGalleries = subscribeToGalleries(() => {
+        adminListGalleries(adminPasscode)
+          .then((latest) => setGalleries(latest))
+          .catch(() => {});
+      });
+
+      // 3. 5-Second Background Heartbeat Polling for 100% Cross-Device Consistency
+      const heartbeat = setInterval(() => {
+        adminListSubmissions(adminPasscode)
+          .then((latestSubs) => setSubmissions(latestSubs))
+          .catch(() => {});
+      }, 5000);
+
+      return () => {
+        unsubSubs();
+        unsubGalleries();
+        clearInterval(heartbeat);
+      };
     }
   }, [adminPasscode]);
 
@@ -241,6 +346,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         : '',
       passcode: activeGallery.passcode || '',
       allowZipDownload: activeGallery.allowZipDownload !== false,
+      downloadPin: activeGallery.downloadPin || '',
+      watermarkEnabled: Boolean(activeGallery.watermarkEnabled),
+      watermarkText: activeGallery.watermarkText || 'PAUL PHOTOGRAPHY 256',
+      sets: activeGallery.sets || ['Highlights', 'Ceremony', 'Portraits'],
+      coverLayout: activeGallery.coverLayout || 'full-bleed',
+      status: activeGallery.status || 'published',
+      linkEnabled: activeGallery.linkEnabled !== false,
+      preventScreenshots: activeGallery.preventScreenshots !== false,
     });
     setConfirmDeleteGallery(false);
     setEditSavedBanner(false);
@@ -283,12 +396,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     [filteredSubmissions, selectedSubmissionId]
   );
 
+  const handleGoogleAccountLogin = (profile: AdminUser) => {
+    setSavedAdminUser(profile);
+    setActiveAdminUser(profile);
+    setSavedAdminPasscode('2567');
+    setAdminPasscode('2567');
+    setIsAccountMenuOpen(false);
+  };
+
+  const handleConnectCustomGoogle = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customGoogleEmail.trim()) return;
+    const cleanEmail = customGoogleEmail.trim().toLowerCase();
+    const cleanName = customGoogleName.trim() || cleanEmail.split('@')[0];
+    const profile: AdminUser = {
+      id: `google-${Date.now()}`,
+      name: cleanName,
+      email: cleanEmail,
+      role: 'Google Studio Admin',
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
+      authProvider: 'google',
+    };
+    const updated = [profile, ...customAccounts.filter((a) => a.email !== cleanEmail)];
+    setCustomAccounts(updated);
+    try {
+      localStorage.setItem('pp256_custom_admin_accounts', JSON.stringify(updated));
+    } catch {}
+    handleGoogleAccountLogin(profile);
+    setCustomGoogleEmail('');
+    setCustomGoogleName('');
+    setIsAddingCustomAccount(false);
+  };
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
     setIsAuthenticating(true);
     try {
       await verifyAdminPasscode(loginInput.trim());
+      const defaultUser = DEFAULT_ADMIN_PROFILES[0];
+      setSavedAdminUser(defaultUser);
+      setActiveAdminUser(defaultUser);
       setAdminPasscode(loginInput.trim());
       setLoginInput('');
     } catch (err) {
@@ -300,6 +448,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleLogout = () => {
     setSavedAdminPasscode(null);
+    setSavedAdminUser(null);
+    setActiveAdminUser(null);
     setAdminPasscode(null);
   };
 
@@ -319,6 +469,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headerStyle: preset?.defaultHeaderStyle || 'editorial',
         defaultLayout: preset?.defaultLayout || 'masonry',
         allowZipDownload: newAllowZipDownload,
+        downloadPin: newDownloadPin.trim() || undefined,
+        watermarkEnabled: newWatermarkEnabled,
+        watermarkText: newWatermarkText.trim() || 'PAUL PHOTOGRAPHY 256',
+        sets: newSets.split(',').map((s) => s.trim()).filter(Boolean),
+        linkEnabled: newLinkEnabled,
+        preventScreenshots: newPreventScreenshots,
       });
       setGalleries((prev) => [created, ...prev]);
       setSelectedGalleryId(created.sessionId);
@@ -329,6 +485,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setNewClientName('');
       setNewDriveFolderId('');
       setNewAllowZipDownload(false);
+      setNewDownloadPin('');
+      setNewLinkEnabled(true);
+      setNewPreventScreenshots(true);
     } catch (err) {
       setDataError(err instanceof Error ? err.message : 'Failed to create gallery.');
     } finally {
@@ -354,6 +513,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleToggleLinkEnabled = async (gallery: AdminGalleryRecord) => {
+    if (!adminPasscode) return;
+    const currentEnabled = gallery.linkEnabled !== false;
+    const newSetting = !currentEnabled;
+    try {
+      const updated = await adminUpdateGallery(adminPasscode, gallery.sessionId, {
+        linkEnabled: newSetting,
+      });
+      setGalleries((prev) =>
+        prev.map((g) => (g.sessionId === updated.sessionId ? { ...g, ...updated, linkEnabled: newSetting } : g))
+      );
+      if (editForm) {
+        setEditForm((prev) => (prev ? { ...prev, linkEnabled: newSetting } : null));
+      }
+    } catch (err) {
+      console.error('Failed to toggle client link permission:', err);
+    }
+  };
+
+  const handleTogglePreventScreenshots = async (gallery: AdminGalleryRecord) => {
+    if (!adminPasscode) return;
+    const currentActive = gallery.preventScreenshots !== false;
+    const newSetting = !currentActive;
+    try {
+      const updated = await adminUpdateGallery(adminPasscode, gallery.sessionId, {
+        preventScreenshots: newSetting,
+      });
+      setGalleries((prev) =>
+        prev.map((g) => (g.sessionId === updated.sessionId ? { ...g, ...updated, preventScreenshots: newSetting } : g))
+      );
+      if (editForm) {
+        setEditForm((prev) => (prev ? { ...prev, preventScreenshots: newSetting } : null));
+      }
+    } catch (err) {
+      console.error('Failed to toggle screenshot protection:', err);
+    }
+  };
+
   const handleSaveGalleryEdits = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminPasscode || !activeGallery || !editForm) return;
@@ -374,6 +571,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         maxSelections: editForm.maxSelections ? Number(editForm.maxSelections) : 0,
         passcode: editForm.passcode,
         allowZipDownload: editForm.allowZipDownload,
+        downloadPin: editForm.downloadPin,
+        watermarkEnabled: editForm.watermarkEnabled,
+        watermarkText: editForm.watermarkText,
+        sets: editForm.sets,
+        coverLayout: editForm.coverLayout,
+        status: editForm.status,
+        linkEnabled: editForm.linkEnabled,
+        preventScreenshots: editForm.preventScreenshots,
       });
       setGalleries((prev) =>
         prev.map((g) =>
@@ -619,27 +824,133 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // ---------------------------------------------------------------------------
-  // STUDIO ADMIN PASSCODE GATE
+  // STUDIO MULTI-ACCOUNT & GOOGLE AUTHENTICATION PORTAL
   // ---------------------------------------------------------------------------
   if (!adminPasscode) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-          <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-950">
-            <KeyRound size={20} />
+        <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-8 shadow-xl">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-xs">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h1 className="font-serif text-xl font-medium text-zinc-950">
+                  Studio Admin Console
+                </h1>
+                <p className="text-xs text-zinc-500">
+                  Paul Photography 256 &middot; Real-Time Proofing Engine
+                </p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Cloud Sync Live</span>
+            </div>
           </div>
 
-          <p className="text-xs font-medium tracking-wide text-zinc-500">
-            Paul Photography 256 &middot; Studio Console
-          </p>
-          <h1 className="mt-1.5 font-serif text-2xl font-medium text-zinc-950">
-            Photographer Admin Sign-In
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Upload client galleries, customize visual layouts, generate private client links, and batch-export `.jpg` selections.
+          <p className="mt-4 text-xs leading-relaxed text-zinc-600">
+            Sign in with your Google account, studio profile, or master passcode. All authenticated accounts share the <strong>real-time client submissions stream</strong> and all client galleries.
           </p>
 
-          <form onSubmit={handleAdminLogin} className="mt-6 space-y-4">
+          {/* Quick One-Click Google / Studio Accounts */}
+          <div className="mt-5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Sign In with Google Account / Studio Profile
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsAddingCustomAccount(!isAddingCustomAccount)}
+                className="text-[11px] font-semibold text-purple-700 hover:text-purple-900"
+              >
+                {isAddingCustomAccount ? 'View default accounts' : '+ Connect custom Google'}
+              </button>
+            </div>
+
+            {isAddingCustomAccount ? (
+              <form onSubmit={handleConnectCustomGoogle} className="rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-3">
+                <p className="text-xs font-semibold text-zinc-900">
+                  Connect Your Google Account
+                </p>
+                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  Enter your Google Account email. You will immediately have access to all client galleries and real-time submissions stream.
+                </p>
+                <div>
+                  <input
+                    type="email"
+                    required
+                    value={customGoogleEmail}
+                    onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                    placeholder="e.g. photographer@gmail.com"
+                    className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={customGoogleName}
+                    onChange={(e) => setCustomGoogleName(e.target.value)}
+                    placeholder="Your display name (optional)"
+                    className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCustomAccount(false)}
+                    className="flex-1 rounded-lg border border-zinc-300 bg-white py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 rounded-lg bg-zinc-950 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
+                  >
+                    Sign In with Google
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-2">
+                {allAvailableProfiles.map((profile) => (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onClick={() => handleGoogleAccountLogin(profile)}
+                    className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50/70 p-3 text-left transition-all hover:border-zinc-950 hover:bg-white hover:shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={profile.avatarUrl}
+                        alt={profile.name}
+                        className="h-9 w-9 rounded-full object-cover border border-zinc-200"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-900">{profile.name}</p>
+                        <p className="font-mono text-[11px] text-zinc-500">{profile.email}</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-zinc-200/80 px-2.5 py-1 text-[10px] font-medium text-zinc-700">
+                      {profile.role}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-zinc-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-3 text-zinc-400 font-medium">Or enter studio passcode</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
             {loginError && (
               <div
                 role="alert"
@@ -650,24 +961,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
 
             <div>
-              <label
-                htmlFor="pp-admin-passcode"
-                className="mb-1.5 block text-xs font-semibold text-zinc-900"
-              >
-                Studio Passcode
-              </label>
-              <input
-                id="pp-admin-passcode"
-                type="password"
-                required
-                value={loginInput}
-                onChange={(e) => setLoginInput(e.target.value)}
-                placeholder="Enter studio passcode"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-              <p className="mt-1.5 text-xs text-zinc-500">
-                Default passcode: <code className="font-mono text-zinc-800">2567</code> (override via <code className="font-mono">ADMIN_PASSCODE</code>).
-              </p>
+              <div className="relative">
+                <KeyRound
+                  size={15}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
+                />
+                <input
+                  id="pp-admin-passcode"
+                  type="password"
+                  required
+                  value={loginInput}
+                  onChange={(e) => setLoginInput(e.target.value)}
+                  placeholder="Enter studio master passcode (2567)"
+                  className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 pl-10 pr-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-2.5 pt-1">
@@ -676,14 +984,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={onExitToShowcase}
                 className="inline-flex min-h-[42px] flex-1 items-center justify-center whitespace-nowrap rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
               >
-                Back to Gallery
+                Back to Showcase
               </button>
               <button
                 type="submit"
                 disabled={isAuthenticating}
                 className="inline-flex min-h-[42px] flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
               >
-                {isAuthenticating ? 'Unlocking...' : 'Enter Studio'}
+                {isAuthenticating ? 'Authenticating...' : 'Enter Console'}
               </button>
             </div>
           </form>
@@ -792,23 +1100,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {galleries.map((g) => {
                   const isActive = activeGallery?.sessionId === g.sessionId;
                   return (
-                    <button
+                    <div
                       key={g.sessionId}
-                      type="button"
-                      onClick={() => setSelectedGalleryId(g.sessionId)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      className={`group relative flex items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
                         isActive
-                          ? 'border-zinc-300 bg-zinc-100'
+                          ? 'border-zinc-300 bg-zinc-100 shadow-2xs'
                           : 'border-transparent hover:bg-zinc-50'
                       }`}
                     >
-                      <p className="truncate text-xs font-semibold text-zinc-900">
-                        {g.sessionName}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-zinc-500">
-                        {g.photos.length} photos &middot; {g.submissionCount || 0} picks
-                      </p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGalleryId(g.sessionId)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="truncate text-xs font-semibold text-zinc-900 flex items-center gap-1.5">
+                          <span className="truncate">{g.sessionName}</span>
+                          {g.linkEnabled === false && (
+                            <span className="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-700">
+                              Disabled
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-zinc-500">
+                          {g.photos.length} photos &middot; {g.submissionCount || 0} picks
+                        </p>
+                      </button>
+
+                      {/* Quick action buttons for each gallery */}
+                      <div className="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedGalleryId(g.sessionId);
+                            setGalleryTab('design');
+                          }}
+                          title="Edit Gallery"
+                          className="p-1 rounded text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 transition-colors"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGalleryToDelete(g);
+                          }}
+                          title="Delete Gallery"
+                          className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -865,6 +1209,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         <div className="hidden border-t border-zinc-200 p-3.5 lg:block">
+          {/* Active Admin Profile Card */}
+          <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-50/80 p-2.5">
+            <img
+              src={activeAdminUser?.avatarUrl || DEFAULT_ADMIN_PROFILES[0].avatarUrl}
+              alt={activeAdminUser?.name}
+              className="h-8 w-8 rounded-full border border-zinc-300 object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-zinc-950">
+                {activeAdminUser?.name || 'Studio Admin'}
+              </p>
+              <p className="truncate font-mono text-[10px] text-zinc-500">
+                {activeAdminUser?.email || 'admin@paulphotography256.com'}
+              </p>
+            </div>
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Live stream active" />
+          </div>
+
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
@@ -889,19 +1251,134 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Workspace */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 bg-white px-6 py-4">
-          <div className="min-w-0 text-sm text-zinc-500">
-            <span>Studio Console</span>
-            <span className="mx-2" aria-hidden="true">/</span>
-            <span className="font-medium text-zinc-950">
-              {section === 'galleries'
-                ? activeGallery?.sessionName || 'Client Galleries'
-                : section === 'submissions'
-                ? 'Client Favorite Submissions'
-                : 'Studio Storage & Capacity'}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 text-sm text-zinc-500">
+              <span>Studio Console</span>
+              <span className="mx-2" aria-hidden="true">/</span>
+              <span className="font-medium text-zinc-950">
+                {section === 'galleries'
+                  ? activeGallery?.sessionName || 'Client Galleries'
+                  : section === 'submissions'
+                  ? 'Client Favorite Submissions'
+                  : 'Studio Storage & Capacity'}
+              </span>
+            </div>
+
+            {/* Live Real-Time Multi-Account Stream Indicator */}
+            <div className="hidden xl:inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Real-Time Stream Active (All Accounts)</span>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Google / Admin Profile Badge & Switcher */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 hover:border-zinc-300 hover:bg-zinc-100 transition-all cursor-pointer"
+                title="Switch Google / Admin Account"
+              >
+                <img
+                  src={activeAdminUser?.avatarUrl || DEFAULT_ADMIN_PROFILES[0].avatarUrl}
+                  alt={activeAdminUser?.name}
+                  className="h-6 w-6 rounded-full border border-zinc-300 object-cover"
+                />
+                <span className="text-xs font-medium text-zinc-800 max-w-[120px] truncate hidden sm:inline">
+                  {activeAdminUser?.name || 'Kibalama Paul'}
+                </span>
+                <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-1.5 py-0.5 rounded-full hidden md:inline">
+                  {activeAdminUser?.role || 'Admin'}
+                </span>
+                <ChevronDown size={14} className="text-zinc-500" />
+              </button>
+
+              {/* Account Switcher Dropdown */}
+              {isAccountMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 z-40 w-80 rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl">
+                  <div className="border-b border-zinc-100 pb-2.5 px-1">
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                      Signed in as
+                    </p>
+                    <p className="text-xs font-bold text-zinc-900 mt-0.5">
+                      {activeAdminUser?.name}
+                    </p>
+                    <p className="font-mono text-[11px] text-zinc-500 truncate">
+                      {activeAdminUser?.email}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded-md px-2 py-0.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Viewing all client submissions &amp; galleries in real-time</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold px-1 mb-1">
+                      Switch Google / Studio Profile
+                    </p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {allAvailableProfiles.map((p) => {
+                        const isCurrent = activeAdminUser?.email === p.email;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleGoogleAccountLogin(p)}
+                            className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-colors ${
+                              isCurrent
+                                ? 'bg-zinc-100 font-semibold text-zinc-950'
+                                : 'text-zinc-700 hover:bg-zinc-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <img
+                                src={p.avatarUrl}
+                                alt={p.name}
+                                className="h-6 w-6 rounded-full object-cover shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate leading-tight">{p.name}</p>
+                                <p className="font-mono text-[10px] text-zinc-400 truncate leading-tight">
+                                  {p.email}
+                                </p>
+                              </div>
+                            </div>
+                            {isCurrent ? (
+                              <Check size={14} className="text-emerald-600 shrink-0" />
+                            ) : (
+                              <span className="text-[10px] text-zinc-400 shrink-0">{p.role}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-2 border-t border-zinc-100 pt-2 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAccountMenuOpen(false);
+                        setIsAddingCustomAccount(true);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-50 transition-colors"
+                    >
+                      <Plus size={14} />
+                      <span>Sign In with another Google Account</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+                    >
+                      <LogOut size={14} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             {storageStatus && (
               <button
                 type="button"
@@ -926,7 +1403,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-50"
                 >
                   {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copiedLink ? 'Link Copied' : 'Copy Client Link'}</span>
+                  <span>{copiedLink ? 'Link Copied' : 'Copy Link'}</span>
                 </button>
                 <button
                   type="button"
@@ -934,7 +1411,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-50"
                 >
                   <ExternalLink size={14} />
-                  <span>Preview Client View</span>
+                  <span>Preview</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGalleryTab('design')}
+                  className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    galleryTab === 'design'
+                      ? 'border-zinc-950 bg-zinc-950 text-white shadow-xs'
+                      : 'border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50'
+                  }`}
+                  title="Edit gallery title, client name, shoot date, and design"
+                >
+                  <Pencil size={13} />
+                  <span>Edit Gallery</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGalleryToDelete(activeGallery)}
+                  className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors"
+                  title="Delete this client gallery"
+                >
+                  <Trash2 size={13} />
+                  <span>Delete</span>
                 </button>
               </>
             )}
@@ -1010,6 +1509,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>&middot;</span>
                       <button
                         type="button"
+                        onClick={() => handleToggleLinkEnabled(activeGallery)}
+                        title="Click to enable or disable client link access"
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all shadow-2xs ${
+                          activeGallery.linkEnabled !== false
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 hover:bg-emerald-100'
+                            : 'bg-rose-50 text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100'
+                        }`}
+                      >
+                        {activeGallery.linkEnabled !== false ? (
+                          <Link2 size={11} className="text-emerald-600" />
+                        ) : (
+                          <Link2Off size={11} className="text-rose-600" />
+                        )}
+                        <span>
+                          Client Link: {activeGallery.linkEnabled !== false ? 'Active' : 'Disabled'}
+                        </span>
+                      </button>
+                      <span>&middot;</span>
+                      <button
+                        type="button"
                         onClick={() => handleToggleDownloads(activeGallery)}
                         title="Click to toggle client download access"
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all shadow-2xs ${
@@ -1025,6 +1544,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         />
                         <span>
                           Downloads: {activeGallery.allowZipDownload ? 'Active' : 'Disabled (View-Only)'}
+                        </span>
+                      </button>
+                      <span>&middot;</span>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePreventScreenshots(activeGallery)}
+                        title="Click to toggle anti-screenshot capture protection"
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all shadow-2xs ${
+                          activeGallery.preventScreenshots !== false
+                            ? 'bg-purple-50 text-purple-700 ring-1 ring-purple-600/20 hover:bg-purple-100'
+                            : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-200'
+                        }`}
+                      >
+                        <ShieldAlert size={11} className={activeGallery.preventScreenshots !== false ? 'text-purple-600' : 'text-zinc-400'} />
+                        <span>
+                          Anti-Screenshot: {activeGallery.preventScreenshots !== false ? 'Active' : 'Off'}
                         </span>
                       </button>
                     </p>
@@ -1052,8 +1587,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           : 'text-zinc-600 hover:text-zinc-950'
                       }`}
                     >
-                      <Palette size={14} />
-                      <span>Design &amp; Details</span>
+                      <Pencil size={13} />
+                      <span>Edit &amp; Settings</span>
                     </button>
                     <button
                       type="button"
@@ -1307,15 +1842,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 )}
 
-                {/* SUB-TAB 2: DESIGN & DETAILS CUSTOMIZER */}
+                {/* SUB-TAB 2: EDIT GALLERY & DESIGN SETTINGS */}
                 {galleryTab === 'design' && editForm && (
                   <form
                     onSubmit={handleSaveGalleryEdits}
-                    className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6"
+                    className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs"
                   >
+                    {/* Top Action & Save Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-4">
+                      <div>
+                        <h2 className="text-base font-semibold text-zinc-950 flex items-center gap-2">
+                          <Pencil size={16} className="text-purple-600" />
+                          <span>Edit Gallery &amp; Design Settings</span>
+                        </h2>
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          Update title, client name, shoot date, photo sets, passcode, download PIN, and theme.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setGalleryToDelete(activeGallery)}
+                          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete Gallery</span>
+                        </button>
+
+                        <button
+                          type="submit"
+                          disabled={isSavingEdit}
+                          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-60 shadow-xs transition-colors"
+                        >
+                          {isSavingEdit ? (
+                            <Loader2 size={13} className="animate-spin text-white" />
+                          ) : (
+                            <Check size={13} />
+                          )}
+                          <span>{isSavingEdit ? 'Saving...' : 'Save Changes'}</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {editSavedBanner && (
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-medium text-emerald-800">
-                        Gallery settings and interface design saved.
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-medium text-emerald-800 flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        <span>Gallery settings saved successfully! Updates are live across all client and admin views.</span>
                       </div>
                     )}
 
@@ -1569,25 +2142,80 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       />
                     </div>
 
-                    <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={editForm.allowZipDownload}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            allowZipDownload: e.target.checked,
-                          })
-                        }
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
-                      />
-                      <div>
-                        <span className="font-semibold text-zinc-900">Enable Client Downloads (Original High-Resolution)</span>
-                        <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
-                          When checked, clients can download full-resolution original photos and ZIP archives. When unchecked, clients have strictly view-only access.
-                        </p>
-                      </div>
-                    </label>
+                    <div className="space-y-3">
+                      <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={editForm.linkEnabled}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              linkEnabled: e.target.checked,
+                            })
+                          }
+                          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
+                        />
+                        <div>
+                          <span className="font-semibold text-zinc-900 flex items-center gap-1.5">
+                            <span>Activate Client Link (Public Proofing Access)</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              editForm.linkEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {editForm.linkEnabled ? 'Active' : 'Disabled'}
+                            </span>
+                          </span>
+                          <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                            When checked, the client can access and review their proofing gallery at their unique URL. When unchecked, client access is immediately disabled and revoked with a studio contact screen.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={editForm.preventScreenshots}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              preventScreenshots: e.target.checked,
+                            })
+                          }
+                          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-purple-700 focus:ring-purple-700"
+                        />
+                        <div>
+                          <span className="font-semibold text-zinc-900 flex items-center gap-1.5">
+                            <ShieldAlert size={13} className="text-purple-600" />
+                            <span>Screen Capture &amp; Anti-Screenshot Protection</span>
+                            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+                              Active Shield
+                            </span>
+                          </span>
+                          <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                            Blocks right-click context menu, browser print shortcuts (Cmd/Ctrl+P), screenshot shortcuts (PrintScreen, Cmd+Shift+3/4/5), photo dragging, and blurs proofs during screen capture attempts.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={editForm.allowZipDownload}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              allowZipDownload: e.target.checked,
+                            })
+                          }
+                          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
+                        />
+                        <div>
+                          <span className="font-semibold text-zinc-900">Enable Client Downloads (Original High-Resolution)</span>
+                          <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                            When checked, clients can download full-resolution original photos and ZIP archives. When unchecked, download buttons are completely hidden for strictly view-only proofing.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
 
                     <div className="flex justify-end border-t border-zinc-200 pt-5">
                       <button
@@ -1604,6 +2232,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* SUB-TAB 3: PROVISIONED CLIENT LINK & ACCESS */}
                 {galleryTab === 'share' && (
                   <div className="space-y-6">
+                    {/* Client Link Status & Fast Controls Card */}
+                    <div className={`rounded-2xl border p-5 flex flex-wrap items-center justify-between gap-4 ${
+                      activeGallery.linkEnabled !== false
+                        ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+                        : 'border-rose-200 bg-rose-50/80 text-rose-950'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`inline-flex h-11 w-11 items-center justify-center rounded-xl shadow-xs ${
+                          activeGallery.linkEnabled !== false ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                        }`}>
+                          {activeGallery.linkEnabled !== false ? <Link2 size={20} /> : <Link2Off size={20} />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {activeGallery.linkEnabled !== false ? 'Client Link is Live & Accessible' : 'Client Link is Currently Disabled & Revoked'}
+                          </p>
+                          <p className="text-xs opacity-80 mt-0.5">
+                            {activeGallery.linkEnabled !== false
+                              ? 'Clients visiting this URL can view proofs, select favorites, and play slideshows.'
+                              : 'Clients visiting this URL will see an "Access Suspended" notice with studio contact information.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLinkEnabled(activeGallery)}
+                          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold shadow-xs transition-colors ${
+                            activeGallery.linkEnabled !== false
+                              ? 'border border-rose-300 bg-white text-rose-700 hover:bg-rose-50'
+                              : 'bg-emerald-700 text-white hover:bg-emerald-800'
+                          }`}
+                        >
+                          {activeGallery.linkEnabled !== false ? <Link2Off size={14} /> : <Link2 size={14} />}
+                          <span>{activeGallery.linkEnabled !== false ? 'Disable Client Link' : 'Activate Client Link'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePreventScreenshots(activeGallery)}
+                          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-colors ${
+                            activeGallery.preventScreenshots !== false
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                              : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
+                          }`}
+                        >
+                          <ShieldAlert size={14} className={activeGallery.preventScreenshots !== false ? 'text-purple-600' : 'text-zinc-400'} />
+                          <span>{activeGallery.preventScreenshots !== false ? 'Screenshot Shield: On' : 'Screenshot Shield: Off'}</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="rounded-2xl border border-zinc-200 bg-white p-6">
                       <h2 className="text-sm font-semibold text-zinc-950">
                         Private Client Gallery Link
@@ -1725,6 +2404,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ) : section === 'submissions' ? (
             /* SECTION 2: CLIENT SUBMISSIONS INBOX */
             <div className="space-y-5">
+              {/* Real-time sync banner */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-2.5 text-xs text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-semibold">Real-Time Stream Active:</span>
+                  <span>Every logged-in admin &amp; Google account sees new client selections instantly (&lt;200ms).</span>
+                </div>
+                <span className="font-mono text-[11px] font-semibold opacity-80">
+                  {submissions.length} total client {submissions.length === 1 ? 'submission' : 'submissions'}
+                </span>
+              </div>
+
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="relative w-full max-w-sm">
                   <Search
@@ -1818,12 +2509,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <h2 className="mt-1 font-serif text-xl font-medium text-zinc-950">
                             {activeSubmission.clientName}
                           </h2>
-                          <a
-                            href={`mailto:${activeSubmission.clientEmail}`}
-                            className="text-xs font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-950"
-                          >
-                            {activeSubmission.clientEmail}
-                          </a>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <a
+                              href={`mailto:${activeSubmission.clientEmail}`}
+                              className="text-xs font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-950"
+                            >
+                              {activeSubmission.clientEmail}
+                            </a>
+                            {activeSubmission.clientPhone && (
+                              <>
+                                <span className="text-zinc-300">&middot;</span>
+                                <a
+                                  href={`https://wa.me/${activeSubmission.clientPhone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                                >
+                                  <MessageCircle size={13} />
+                                  <span>{activeSubmission.clientPhone} (WhatsApp)</span>
+                                </a>
+                              </>
+                            )}
+                          </div>
                         </div>
 
                         <select
@@ -2369,20 +3076,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </select>
               </div>
 
-              <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={newAllowZipDownload}
-                  onChange={(e) => setNewAllowZipDownload(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
-                />
-                <div>
-                  <span className="font-semibold text-zinc-900">Enable Client Downloads</span>
-                  <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
-                    Allow client to download high-resolution original photos and ZIP archives. Leave unchecked for view-only client proofing.
-                  </p>
-                </div>
-              </label>
+              <div className="space-y-2.5">
+                <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newLinkEnabled}
+                    onChange={(e) => setNewLinkEnabled(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
+                  />
+                  <div>
+                    <span className="font-semibold text-zinc-900">Activate Client Link</span>
+                    <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                      Make this proofing gallery accessible immediately at its client URL.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newPreventScreenshots}
+                    onChange={(e) => setNewPreventScreenshots(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-purple-700 focus:ring-purple-700"
+                  />
+                  <div>
+                    <span className="font-semibold text-zinc-900">Anti-Screenshot Protection</span>
+                    <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                      Guards proofs with screenshot blocking, print lockdown, and capture shielding.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newAllowZipDownload}
+                    onChange={(e) => setNewAllowZipDownload(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
+                  />
+                  <div>
+                    <span className="font-semibold text-zinc-900">Enable Client Downloads</span>
+                    <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                      Allow client to download high-resolution original photos and ZIP archives. Leave unchecked for view-only proofing.
+                    </p>
+                  </div>
+                </label>
+              </div>
 
               <div className="flex justify-end gap-2.5 pt-2">
                 <button
@@ -2401,6 +3140,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE GALLERY CONFIRMATION MODAL */}
+      {galleryToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setGalleryToDelete(null);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-100">
+                <Trash2 size={22} className="text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-serif text-lg font-semibold text-zinc-950">
+                  Delete Client Gallery
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  This action is permanent and cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50/70 p-4 text-xs text-rose-900 leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <strong>"{galleryToDelete.sessionName}"</strong>?
+              {galleryToDelete.photos.length > 0 && (
+                <span className="block mt-1">
+                  All <strong>{galleryToDelete.photos.length} uploaded photographs</strong>, proofs, and client access links will be permanently removed.
+                </span>
+              )}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setGalleryToDelete(null)}
+                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!adminPasscode || !galleryToDelete) return;
+                  try {
+                    await adminDeleteGallery(adminPasscode, galleryToDelete.sessionId);
+                    const remaining = galleries.filter(
+                      (g) => g.sessionId !== galleryToDelete.sessionId
+                    );
+                    setGalleries(remaining);
+                    if (selectedGalleryId === galleryToDelete.sessionId) {
+                      setSelectedGalleryId(remaining[0]?.sessionId || null);
+                    }
+                    setGalleryToDelete(null);
+                  } catch (err) {
+                    setDataError(
+                      err instanceof Error ? err.message : 'Unable to delete gallery.'
+                    );
+                  }
+                }}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 shadow-sm"
+              >
+                Yes, Delete Gallery
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -517,6 +517,13 @@ function paulDevApiPlugin() {
                 if (idx >= 0) {
                   submissions[idx] = { ...submissions[idx], ...payload };
                   fs.writeFileSync(submissionsFile, JSON.stringify(submissions, null, 2), 'utf-8');
+                  try {
+                    fetch('https://ntfy.sh/paul_photo_proofing_submissions_256_dirfcqs1f', {
+                      method: 'POST',
+                      body: JSON.stringify(submissions[idx]),
+                      headers: { Title: 'Submission Updated', Tags: 'clipboard', Cache: 'yes' },
+                    }).catch(() => {});
+                  } catch (_) {}
                   res.statusCode = 200;
                   res.end(JSON.stringify({ submission: submissions[idx] }));
                 } else {

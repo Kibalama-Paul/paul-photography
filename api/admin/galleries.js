@@ -164,6 +164,13 @@ export function readProofingGalleries() {
 export function writeProofingGalleries(data) {
   try {
     fs.writeFileSync(galleriesFile, JSON.stringify(data, null, 2), 'utf-8');
+    try {
+      fetch('https://ntfy.sh/paul_photo_proofing_galleries_256_dirfcqs1f', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'sync', timestamp: Date.now() }),
+        headers: { Title: 'Galleries Synchronized', Tags: 'framed_picture', Cache: 'yes' },
+      }).catch(() => {});
+    } catch (_) {}
     return true;
   } catch (err) {
     console.error('Error writing proofing galleries:', err);
@@ -345,6 +352,12 @@ export default async function handler(req, res) {
           coverPhotoId: '',
           maxSelections: payload.maxSelections ? Number(payload.maxSelections) : undefined,
           allowZipDownload: Boolean(payload.allowZipDownload),
+          downloadPin: payload.downloadPin?.trim() || undefined,
+          watermarkEnabled: Boolean(payload.watermarkEnabled),
+          watermarkText: payload.watermarkText?.trim() || 'PAUL PHOTOGRAPHY 256',
+          coverLayout: payload.coverLayout || 'full-bleed',
+          status: payload.status || 'published',
+          sets: Array.isArray(payload.sets) && payload.sets.length > 0 ? payload.sets : ['Highlights', 'Ceremony', 'Portraits'],
           passcode: payload.passcode?.trim() || undefined,
           requiresPasscode: Boolean(payload.passcode?.trim()),
           source: 'studio',
@@ -510,6 +523,7 @@ export default async function handler(req, res) {
               height: h,
               aspectRatio: w >= h ? (w === h ? 'square' : 'landscape') : 'portrait',
               storage: photoStorage,
+              set: (parts.find((p) => p.name === 'set')?.data?.toString()?.trim()) || (galleries[idx].sets?.[0] || 'Highlights'),
               capturedAt: new Date().toISOString(),
             };
             uploadedPhotos.push(photoItem);
