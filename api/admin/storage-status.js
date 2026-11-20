@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getGoogleServiceAccountToken, loadLocalEnv } from '../favorites.js';
+import { getR2Status } from '../r2.js';
 
 loadLocalEnv();
 
@@ -146,10 +147,19 @@ export async function getStorageStatus() {
     }
   }
 
+  // 4. Cloudflare R2 Object Storage Status
+  let r2 = { configured: false };
+  try {
+    r2 = await getR2Status();
+  } catch (err) {
+    console.warn('Could not query Cloudflare R2 status:', err);
+  }
+
   return {
     disk,
     studio,
     drive,
+    r2,
     updatedAt: new Date().toISOString(),
   };
 }

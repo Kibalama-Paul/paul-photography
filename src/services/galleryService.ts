@@ -1,4 +1,5 @@
 import { MOCK_GALLERY_SESSIONS } from '../data/mockGallery';
+import { createWebOptimizedBlob } from '../utils/imageOptimizer';
 import {
   AdminGalleryRecord,
   DriveStatusResponse,
@@ -8,6 +9,7 @@ import {
   GallerySession,
   GalleryThemeId,
   PhotoItem,
+  R2StatusResponse,
   StorageStatusResponse,
   StoredSubmissionRecord,
   SubmissionStatus,
@@ -432,12 +434,27 @@ export async function adminUploadPhotos(
   files: File[]
 ): Promise<{
   gallery: AdminGalleryRecord;
-  uploadDestination: 'google-drive' | 'local';
+  uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
 }> {
   try {
     const formData = new FormData();
     for (const file of files) {
-      formData.append('photos', file);
+      // 1. Pristine original full-resolution file (for client download)
+      formData.append('photos', file, file.name);
+
+      // 2. Client-side web-optimized compressed preview (for fast loading)
+      try {
+        const { blob: previewBlob, width, height } = await createWebOptimizedBlob(file);
+        const previewName = file.name.replace(/\.[^/.]+$/, '') + '_web.jpg';
+        formData.append('previews', previewBlob, previewName);
+        formData.append('widths', String(width));
+        formData.append('heights', String(height));
+      } catch {
+        // Fallback: if browser canvas fails, send original
+        formData.append('previews', file, file.name);
+        formData.append('widths', '1800');
+        formData.append('heights', '1200');
+      }
     }
 
     const res = await fetch(
@@ -453,7 +470,7 @@ export async function adminUploadPhotos(
     if (res.ok) {
       const data = (await res.json()) as {
         gallery: AdminGalleryRecord;
-        uploadDestination: 'google-drive' | 'local';
+        uploadDestination: 'google-drive' | 'local' | 'cloudflare-r2';
       };
       if (data?.gallery) {
         const local = getLocalStoredGalleries();
@@ -472,27 +489,38 @@ export async function adminUploadPhotos(
     console.warn('[Admin Photo Upload] API error, falling back to local file readers:', err);
   }
 
-  // Fallback: convert files to object URLs / base64 and save to localStorage
-  const readPhotoAsDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
-    });
-
+  // Fallback: convert files to object URLs and save to localStorage
   const photoItems: PhotoItem[] = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const dataUrl = await readPhotoAsDataUrl(file);
+    let previewUrl = '';
+    let origUrl = '';
+    let previewSize = file.size;
+    let w = 1800;
+    let h = 1200;
+
+    try {
+      const { blob: previewBlob, width, height } = await createWebOptimizedBlob(file);
+      previewUrl = URL.createObjectURL(previewBlob);
+      previewSize = previewBlob.size;
+      w = width;
+      h = height;
+    } catch {
+      previewUrl = URL.createObjectURL(file);
+    }
+    origUrl = URL.createObjectURL(file);
+
     const photoId = `pp256-local-${Date.now().toString(36)}-${i}`;
     photoItems.push({
       id: photoId,
       filename: file.name,
       title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' '),
-      thumbnailUrl: dataUrl || URL.createObjectURL(file),
-      fullUrl: dataUrl || URL.createObjectURL(file),
+      thumbnailUrl: previewUrl,
+      fullUrl: origUrl,
       sizeBytes: file.size,
+      previewSizeBytes: previewSize,
+      width: w,
+      height: h,
       mimeType: file.type,
       storage: 'local',
       capturedAt: new Date().toISOString(),
@@ -564,6 +592,20 @@ export async function adminGetDriveStatus(
     });
     if (res.ok) {
       return (await res.json()) as DriveStatusResponse;
+    }
+  } catch {}
+  return { configured: false };
+}
+
+export async function adminGetR2Status(
+  passcode: string
+): Promise<R2StatusResponse> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/r2/status`, {
+      headers: adminHeaders(passcode),
+    });
+    if (res.ok) {
+      return (await res.json()) as R2StatusResponse;
     }
   } catch {}
   return { configured: false };

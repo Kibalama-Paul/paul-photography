@@ -2,20 +2,24 @@ import React, { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Heart,
   ImageOff,
+  Loader2,
   MessageSquare,
   X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import { PhotoItem } from '../types/gallery';
+import { downloadSinglePhoto } from '../utils/downloadHelpers';
 
 interface LightboxModalProps {
   photos: PhotoItem[];
   activePhotoId: string | null;
   favoriteSet: Set<string>;
   notesByPhotoId: Record<string, string>;
+  allowDownload?: boolean;
   onClose: () => void;
   onSelectPhoto: (photoId: string) => void;
   onToggleFavorite: (photoId: string) => void;
@@ -29,6 +33,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   activePhotoId,
   favoriteSet,
   notesByPhotoId,
+  allowDownload = false,
   onClose,
   onSelectPhoto,
   onToggleFavorite,
@@ -37,6 +42,8 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const [zoomIndex, setZoomIndex] = useState(0);
   const [panOrigin, setPanOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [imgError, setImgError] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   const currentIndex = photos.findIndex((p) => p.id === activePhotoId);
   const activePhoto = currentIndex >= 0 ? photos[currentIndex] : null;
@@ -46,7 +53,24 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     setZoomIndex(0);
     setPanOrigin({ x: 50, y: 50 });
     setImgError(false);
+    setIsDownloading(false);
+    setDownloadSuccess(false);
   }, [activePhotoId]);
+
+  const handleDownloadPhoto = async () => {
+    if (!activePhoto || isDownloading) return;
+    setIsDownloading(true);
+    setDownloadSuccess(false);
+    try {
+      await downloadSinglePhoto(activePhoto);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 2500);
+    } catch (err) {
+      console.error('[Download error]', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   useEffect(() => {
     if (!activePhoto) return;
@@ -151,6 +175,27 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {allowDownload && (
+            <button
+              type="button"
+              onClick={handleDownloadPhoto}
+              disabled={isDownloading}
+              title="Download Original High-Resolution Photo"
+              className="inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-60"
+            >
+              {isDownloading ? (
+                <Loader2 size={15} className="animate-spin text-white" />
+              ) : downloadSuccess ? (
+                <Download size={15} className="text-emerald-400" />
+              ) : (
+                <Download size={15} />
+              )}
+              <span className="hidden sm:inline">
+                {isDownloading ? 'Downloading...' : downloadSuccess ? 'Saved Original' : 'Download Original'}
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleCycleZoom}
@@ -216,7 +261,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             </div>
           ) : (
             <img
-              src={activePhoto.fullUrl}
+              src={(zoomScale > 1 && activePhoto.fullUrl) ? activePhoto.fullUrl : (activePhoto.thumbnailUrl || activePhoto.fullUrl)}
               alt={activePhoto.title || activePhoto.filename}
               referrerPolicy="no-referrer"
               onError={() => setImgError(true)}

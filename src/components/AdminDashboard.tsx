@@ -108,6 +108,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newCategory, setNewCategory] = useState('Wedding & Editorial');
   const [newDriveFolderId, setNewDriveFolderId] = useState('');
   const [newTheme, setNewTheme] = useState<GalleryThemeId>('editorial-light');
+  const [newAllowZipDownload, setNewAllowZipDownload] = useState(false);
   const [isSavingNew, setIsSavingNew] = useState(false);
 
   // Google Drive connection status
@@ -317,7 +318,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         theme: newTheme,
         headerStyle: preset?.defaultHeaderStyle || 'editorial',
         defaultLayout: preset?.defaultLayout || 'masonry',
-        allowZipDownload: true,
+        allowZipDownload: newAllowZipDownload,
       });
       setGalleries((prev) => [created, ...prev]);
       setSelectedGalleryId(created.sessionId);
@@ -327,10 +328,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setNewTitle('');
       setNewClientName('');
       setNewDriveFolderId('');
+      setNewAllowZipDownload(false);
     } catch (err) {
       setDataError(err instanceof Error ? err.message : 'Failed to create gallery.');
     } finally {
       setIsSavingNew(false);
+    }
+  };
+
+  const handleToggleDownloads = async (gallery: AdminGalleryRecord) => {
+    if (!adminPasscode) return;
+    const newSetting = !gallery.allowZipDownload;
+    try {
+      const updated = await adminUpdateGallery(adminPasscode, gallery.sessionId, {
+        allowZipDownload: newSetting,
+      });
+      setGalleries((prev) =>
+        prev.map((g) => (g.sessionId === updated.sessionId ? { ...g, ...updated, allowZipDownload: newSetting } : g))
+      );
+      if (editForm) {
+        setEditForm((prev) => (prev ? { ...prev, allowZipDownload: newSetting } : null));
+      }
+    } catch (err) {
+      console.error('Failed to toggle download permission:', err);
     }
   };
 
@@ -389,7 +409,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )
       );
       setUploadNotice(
-        uploadDestination === 'google-drive'
+        uploadDestination === 'cloudflare-r2'
+          ? `Uploaded ${files.length} photo${files.length === 1 ? '' : 's'} directly to Cloudflare R2 ($0 egress storage).`
+          : uploadDestination === 'google-drive'
           ? `Uploaded ${files.length} image${files.length === 1 ? '' : 's'} directly to Google Drive.`
           : `Uploaded ${files.length} image${files.length === 1 ? '' : 's'} to local Studio Storage.`
       );
@@ -969,17 +991,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <h1 className="font-serif text-2xl font-medium text-zinc-950">
                       {activeGallery.sessionName}
                     </h1>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {activeGallery.clientDisplayName || 'Client Session'} &middot;{' '}
-                      {activeGallery.shootDate} &middot;{' '}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                      <span>{activeGallery.clientDisplayName || 'Client Session'}</span>
+                      <span>&middot;</span>
+                      <span>{activeGallery.shootDate}</span>
+                      <span>&middot;</span>
                       <span className="font-mono tabular-nums">
                         {activeGallery.photos.length} photos
-                      </span>{' '}
-                      &middot; Design:{' '}
-                      <span className="font-medium text-zinc-800">
-                        {GALLERY_DESIGN_PRESETS.find((p) => p.id === activeGallery.theme)
-                          ?.name || 'Editorial Light'}
                       </span>
+                      <span>&middot;</span>
+                      <span>
+                        Design:{' '}
+                        <span className="font-medium text-zinc-800">
+                          {GALLERY_DESIGN_PRESETS.find((p) => p.id === activeGallery.theme)
+                            ?.name || 'Editorial Light'}
+                        </span>
+                      </span>
+                      <span>&middot;</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDownloads(activeGallery)}
+                        title="Click to toggle client download access"
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all shadow-2xs ${
+                          activeGallery.allowZipDownload
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 hover:bg-emerald-100'
+                            : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-200'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            activeGallery.allowZipDownload ? 'bg-emerald-600' : 'bg-zinc-400'
+                          }`}
+                        />
+                        <span>
+                          Downloads: {activeGallery.allowZipDownload ? 'Active' : 'Disabled (View-Only)'}
+                        </span>
+                      </button>
                     </p>
                   </div>
 
@@ -1522,7 +1569,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       />
                     </div>
 
-                    <label className="flex items-center gap-2.5 text-xs font-medium text-zinc-800">
+                    <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
                       <input
                         type="checkbox"
                         checked={editForm.allowZipDownload}
@@ -1532,11 +1579,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             allowZipDownload: e.target.checked,
                           })
                         }
-                        className="h-4 w-4 rounded border-zinc-300"
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
                       />
-                      <span>
-                        Allow client to download selected favorites as a `.zip` archive after submitting
-                      </span>
+                      <div>
+                        <span className="font-semibold text-zinc-900">Enable Client Downloads (Original High-Resolution)</span>
+                        <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                          When checked, clients can download full-resolution original photos and ZIP archives. When unchecked, clients have strictly view-only access.
+                        </p>
+                      </div>
                     </label>
 
                     <div className="flex justify-end border-t border-zinc-200 pt-5">
@@ -2036,6 +2086,113 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
+                  {/* Cloudflare R2 Cloud Storage Card */}
+                  <div className="rounded-2xl border border-zinc-200 bg-white p-6 xl:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-950">
+                        <CloudUpload size={18} className="text-orange-500" />
+                        <span>Cloudflare R2 Object Storage</span>
+                        <span className="hidden sm:inline-block rounded-md bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 border border-orange-200">
+                          $0 Egress Bandwidth
+                        </span>
+                      </div>
+                      {storageStatus.r2?.configured ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Connected &amp; Ready
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Ready to Connect
+                        </span>
+                      )}
+                    </div>
+
+                    {storageStatus.r2?.configured ? (
+                      <div className="mt-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                              R2 Bucket Name
+                            </p>
+                            <p className="mt-1 font-mono text-sm font-bold text-zinc-950 truncate">
+                              {storageStatus.r2.bucketName || '—'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                              Stored R2 Objects
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-bold text-zinc-950">
+                              {storageStatus.r2.totalObjects || 0} photo{(storageStatus.r2.totalObjects || 0) === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                              R2 Storage Footprint
+                            </p>
+                            <p className="mt-1 font-mono text-lg font-bold text-emerald-800">
+                              {storageStatus.r2.totalSizeFormatted || '0 B'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {storageStatus.r2.publicUrl && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs">
+                            <span className="text-zinc-500">Public CDN Endpoint:</span>
+                            <a
+                              href={storageStatus.r2.publicUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-xs font-medium text-zinc-900 hover:underline inline-flex items-center gap-1"
+                            >
+                              <span>{storageStatus.r2.publicUrl}</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-xl border border-dashed border-orange-200 bg-orange-50/40 p-5">
+                        <div className="flex items-start gap-3.5">
+                          <div className="rounded-lg bg-orange-100 p-2 text-orange-600 shrink-0">
+                            <CloudUpload size={20} />
+                          </div>
+                          <div className="text-xs text-zinc-700 space-y-2">
+                            <p className="font-semibold text-zinc-950">
+                              How to Connect Cloudflare R2 (10 GB Free Forever)
+                            </p>
+                            <p className="leading-relaxed text-zinc-600">
+                              Cloudflare R2 provides fast global photo delivery and unlimited client downloads with <strong>$0 egress bandwidth fees</strong>. To activate, add these 5 keys to your <code className="rounded bg-white px-1.5 py-0.5 font-mono text-zinc-800 border border-zinc-200">.env.local</code>:
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_ACCOUNT_ID</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Found on Cloudflare dashboard sidebar</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_BUCKET_NAME</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">e.g. paul-photography-proofing</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_ACCESS_KEY_ID</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">From &quot;Manage R2 API Tokens&quot;</p>
+                              </div>
+                              <div className="rounded-md bg-white p-2 border border-orange-200/80">
+                                <span className="font-semibold text-zinc-900">R2_SECRET_ACCESS_KEY</span>
+                                <p className="text-[10px] text-zinc-500 font-sans mt-0.5">From &quot;Manage R2 API Tokens&quot;</p>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 pt-1">
+                              Until credentials are set, new photo uploads automatically store safely on your local studio SSD.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Google Drive Quota Card */}
                   <div className="rounded-2xl border border-zinc-200 bg-white p-6 xl:col-span-2">
                     <div className="flex items-center justify-between">
@@ -2211,6 +2368,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                 </select>
               </div>
+
+              <label className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={newAllowZipDownload}
+                  onChange={(e) => setNewAllowZipDownload(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-950"
+                />
+                <div>
+                  <span className="font-semibold text-zinc-900">Enable Client Downloads</span>
+                  <p className="text-[11px] text-zinc-500 font-normal mt-0.5">
+                    Allow client to download high-resolution original photos and ZIP archives. Leave unchecked for view-only client proofing.
+                  </p>
+                </div>
+              </label>
 
               <div className="flex justify-end gap-2.5 pt-2">
                 <button

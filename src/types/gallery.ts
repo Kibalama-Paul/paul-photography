@@ -31,7 +31,8 @@ export interface PhotoItem {
   capturedAt?: string;
   mimeType?: string;
   sizeBytes?: number;
-  storage?: 'google-drive' | 'local' | 'sample';
+  previewSizeBytes?: number;
+  storage?: 'google-drive' | 'local' | 'sample' | 'r2';
   exif?: PhotoExif;
 }
 
@@ -150,5 +151,26 @@ export interface StorageStatusResponse {
     freeFormatted?: string;
     usedPercent?: number;
   };
+  r2?: {
+    configured: boolean;
+    connectionValid?: boolean;
+    bucketName?: string;
+    publicUrl?: string;
+    totalObjects?: number;
+    totalSizeBytes?: number;
+    totalSizeFormatted?: string;
+    error?: string | null;
+  };
   updatedAt: string;
+}
+
+export interface R2StatusResponse {
+  configured: boolean;
+  connectionValid?: boolean;
+  bucketName?: string;
+  publicUrl?: string;
+  totalObjects?: number;
+  totalSizeBytes?: number;
+  totalSizeFormatted?: string;
+  error?: string | null;
 }

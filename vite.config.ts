@@ -473,7 +473,8 @@ function paulDevApiPlugin() {
         if (
           url === '/api/admin/galleries' ||
           url?.startsWith('/api/admin/galleries/') ||
-          url === '/api/admin/drive/status'
+          url === '/api/admin/drive/status' ||
+          url === '/api/admin/r2/status'
         ) {
           await galleriesHandler(req, res);
           return;

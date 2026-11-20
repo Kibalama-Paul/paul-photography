@@ -9,140 +9,102 @@
     "theme": "editorial-light",
     "headerStyle": "editorial",
     "defaultLayout": "masonry",
-    "coverPhotoId": "pp256-002",
-    "allowZipDownload": true,
+    "coverPhotoId": "pp256-mworltmc-hruv",
+    "allowZipDownload": false,
     "instructions": "Select your favorite frames with the heart button for final color grading and retouching. Add per-photo crop or edit notes directly on any frame.",
     "source": "studio",
     "createdAt": "2026-11-14T10:00:00.000Z",
     "photos": [
       {
-        "id": "pp256-001",
-        "filename": "PP256_KLA_001.jpg",
-        "title": "Window Light Editorial",
-        "thumbnailUrl": "/proofing/images/proofing_portrait_window_1795095500855.jpg",
-        "fullUrl": "/proofing/images/proofing_portrait_window_1795095500855.jpg",
-        "width": 1500,
-        "height": 2000,
-        "aspectRatio": "portrait",
-        "exif": {
-          "focalLength": "50mm",
-          "aperture": "f/2.0",
-          "shutterSpeed": "1/320s",
-          "iso": 200
-        }
+        "id": "pp256-mworltmc-hruv",
+        "filename": "8M1A1801.jpg",
+        "title": "8M1A1801",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166165437_8m1a1801.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166165437_8m1a1801.jpg",
+        "sizeBytes": 10276815,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:16:40.884Z"
       },
       {
-        "id": "pp256-002",
-        "filename": "PP256_KLA_002.jpg",
-        "title": "Hillside Terrace Laughter",
-        "thumbnailUrl": "/proofing/images/proofing_couple_terrace_1795095503106.jpg",
-        "fullUrl": "/proofing/images/proofing_couple_terrace_1795095503106.jpg",
-        "width": 2000,
-        "height": 1500,
-        "aspectRatio": "landscape",
-        "exif": {
-          "focalLength": "35mm",
-          "aperture": "f/2.8",
-          "shutterSpeed": "1/640s",
-          "iso": 160
-        }
+        "id": "pp256-mwormf84-5hyt",
+        "filename": "8M1A1793.jpg",
+        "title": "8M1A1793",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166200884_8m1a1793.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166200884_8m1a1793.jpg",
+        "sizeBytes": 11082518,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:17:08.884Z"
       },
       {
-        "id": "pp256-003",
-        "filename": "PP256_KLA_003.jpg",
-        "title": "Silver Gelatin Studio Portrait",
-        "thumbnailUrl": "/proofing/images/proofing_monochrome_studio_1795095502052.jpg",
-        "fullUrl": "/proofing/images/proofing_monochrome_studio_1795095502052.jpg",
-        "width": 1500,
-        "height": 2000,
-        "aspectRatio": "portrait",
-        "exif": {
-          "focalLength": "85mm",
-          "aperture": "f/2.2",
-          "shutterSpeed": "1/200s",
-          "iso": 100
-        }
+        "id": "pp256-mworn1ws-po42",
+        "filename": "8M1A1781.jpg",
+        "title": "8M1A1781",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166228884_8m1a1781.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166228884_8m1a1781.jpg",
+        "sizeBytes": 9340867,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:17:38.284Z"
       },
       {
-        "id": "pp256-004",
-        "filename": "PP256_KLA_004.jpg",
-        "title": "Bridal Rings & Garden Roses",
-        "thumbnailUrl": "/proofing/images/proofing_bridal_detail_1795095502755.jpg",
-        "fullUrl": "/proofing/images/proofing_bridal_detail_1795095502755.jpg",
-        "width": 1600,
-        "height": 1600,
-        "aspectRatio": "square",
-        "exif": {
-          "focalLength": "50mm",
-          "aperture": "f/2.8",
-          "shutterSpeed": "1/250s",
-          "iso": 320
-        }
+        "id": "pp256-mworns52-33u6",
+        "filename": "8M1A1775.jpg",
+        "title": "8M1A1775",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166258284_8m1a1775.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166258284_8m1a1775.jpg",
+        "sizeBytes": 15560164,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:18:12.278Z"
       },
       {
-        "id": "pp256-005",
-        "filename": "PP256_KLA_005.jpg",
-        "title": "Travertine Steps Silhouette",
-        "thumbnailUrl": "/proofing/images/proofing_editorial_steps_1795095503342.jpg",
-        "fullUrl": "/proofing/images/proofing_editorial_steps_1795095503342.jpg",
-        "width": 1500,
-        "height": 2000,
-        "aspectRatio": "portrait",
-        "exif": {
-          "focalLength": "24mm",
-          "aperture": "f/4.0",
-          "shutterSpeed": "1/500s",
-          "iso": 100
-        }
+        "id": "pp256-mworondz-afr4",
+        "filename": "8M1A1771.jpg",
+        "title": "8M1A1771",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166292278_8m1a1771.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166292278_8m1a1771.jpg",
+        "sizeBytes": 17898769,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:18:52.775Z"
       },
       {
-        "id": "pp256-006",
-        "filename": "PP256_KLA_006.jpg",
-        "title": "Golden Hour Walkout",
-        "thumbnailUrl": "/proofing/images/proofing_sunset_walkout_1795095503486.jpg",
-        "fullUrl": "/proofing/images/proofing_sunset_walkout_1795095503486.jpg",
-        "width": 2000,
-        "height": 1333,
-        "aspectRatio": "landscape",
-        "exif": {
-          "focalLength": "50mm",
-          "aperture": "f/1.8",
-          "shutterSpeed": "1/1000s",
-          "iso": 100
-        }
+        "id": "pp256-mworpc1g-mqgp",
+        "filename": "8M1A1741.jpg",
+        "title": "8M1A1741",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166332775_8m1a1741.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166332775_8m1a1741.jpg",
+        "sizeBytes": 7194757,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:19:24.724Z"
       },
       {
-        "id": "pp256-007",
-        "filename": "PP256_KLA_007.jpg",
-        "title": "Sparkler Toast & Laughter",
-        "thumbnailUrl": "/proofing/images/proofing_reception_toast_1795095503066.jpg",
-        "fullUrl": "/proofing/images/proofing_reception_toast_1795095503066.jpg",
-        "width": 2000,
-        "height": 1500,
-        "aspectRatio": "landscape",
-        "exif": {
-          "focalLength": "35mm",
-          "aperture": "f/2.0",
-          "shutterSpeed": "1/160s",
-          "iso": 1600
-        }
+        "id": "pp256-mworppx9-ktyt",
+        "filename": "8M1A1756.jpg",
+        "title": "8M1A1756",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166364724_8m1a1756.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166364724_8m1a1756.jpg",
+        "sizeBytes": 13004672,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:19:42.717Z"
       },
       {
-        "id": "pp256-008",
-        "filename": "PP256_KLA_008.jpg",
-        "title": "Studio Rim Light Profile",
-        "thumbnailUrl": "/proofing/images/proofing_studio_rimlight_1795095502328.jpg",
-        "fullUrl": "/proofing/images/proofing_studio_rimlight_1795095502328.jpg",
-        "width": 1500,
-        "height": 2000,
-        "aspectRatio": "portrait",
-        "exif": {
-          "focalLength": "85mm",
-          "aperture": "f/2.8",
-          "shutterSpeed": "1/160s",
-          "iso": 100
-        }
+        "id": "pp256-mworq0oh-ak5d",
+        "filename": "8M1A1732.jpg",
+        "title": "8M1A1732",
+        "thumbnailUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166382717_8m1a1732.jpg",
+        "fullUrl": "https://pub-52ad467d2a294ffbb4b24c1febb41495.r2.dev/galleries/kampala-editorial-2026/1795166382717_8m1a1732.jpg",
+        "sizeBytes": 7398328,
+        "mimeType": "image/jpeg",
+        "storage": "r2",
+        "capturedAt": "2026-11-20T09:19:56.657Z"
       }
-    ]
+    ],
+    "requiresPasscode": false,
+    "updatedAt": "2026-11-20T10:38:01.723Z"
   }
 ]

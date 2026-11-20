@@ -327,6 +327,7 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
           activePhotoId={lightboxPhotoId}
           favoriteSet={favoriteSet}
           notesByPhotoId={notesByPhotoId}
+          allowDownload={Boolean(session.allowZipDownload)}
           onClose={() => setLightboxPhotoId(null)}
           onSelectPhoto={setLightboxPhotoId}
           onToggleFavorite={handleToggleFavorite}
@@ -339,7 +340,7 @@ export const ProofingGallery: React.FC<ProofingGalleryProps> = ({
           sessionName={session.sessionName}
           selectedPhotos={selectedPhotos}
           notesByPhotoId={notesByPhotoId}
-          allowZipDownload={session.allowZipDownload !== false}
+          allowZipDownload={Boolean(session.allowZipDownload)}
           onClose={() => setIsSubmitOpen(false)}
           onSubmit={submitFavoriteSelections}
         />

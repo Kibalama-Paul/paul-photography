@@ -215,3 +215,17 @@ export async function batchDownloadJpgsToDevice(
     count: savedCount,
   };
 }
+
+/**
+ * Downloads a single photo in pristine, original high resolution.
+ */
+export async function downloadSinglePhoto(photo: PhotoItem): Promise<void> {
+  const response = await fetch(photo.fullUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download ${photo.filename} (${response.status})`);
+  }
+  const rawBlob = await response.blob();
+  const jpgBlob = await toJpgBlob(rawBlob);
+  triggerBlobDownload(jpgBlob, ensureJpgExtension(photo.filename));
+}
+

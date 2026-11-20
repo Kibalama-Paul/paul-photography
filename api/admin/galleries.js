@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadLocalEnv } from '../favorites.js';
+import { isR2Configured, uploadToR2, deleteFromR2, getR2Status } from '../r2.js';
 
 loadLocalEnv();
 
@@ -11,12 +12,20 @@ const dataDir = path.resolve(process.cwd(), 'data');
 const galleriesFile = path.resolve(dataDir, 'proofing-galleries.json');
 const submissionsFile = path.resolve(dataDir, 'submissions.json');
 const publicUploadsDir = path.resolve(process.cwd(), 'public/proofing/images');
+const originalsDir = path.resolve(publicUploadsDir, 'originals');
+const webDir = path.resolve(publicUploadsDir, 'web');
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 if (!fs.existsSync(publicUploadsDir)) {
   fs.mkdirSync(publicUploadsDir, { recursive: true });
+}
+if (!fs.existsSync(originalsDir)) {
+  fs.mkdirSync(originalsDir, { recursive: true });
+}
+if (!fs.existsSync(webDir)) {
+  fs.mkdirSync(webDir, { recursive: true });
 }
 
 export function getInitialSeedGalleries() {
@@ -262,6 +271,15 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Route 1b: GET /api/admin/r2/status (Cloudflare R2 Object Storage status)
+  if (pathname === '/api/admin/r2/status') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    const r2Status = await getR2Status();
+    res.end(JSON.stringify(r2Status));
+    return;
+  }
+
   // Parse path segments: /api/admin/galleries[/:sessionId[/action[/:subId]]]
   const match = pathname.match(/^\/api\/admin\/galleries(?:\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?)?$/);
   if (!match) {
@@ -326,7 +344,7 @@ export default async function handler(req, res) {
           defaultLayout: payload.defaultLayout || 'masonry',
           coverPhotoId: '',
           maxSelections: payload.maxSelections ? Number(payload.maxSelections) : undefined,
-          allowZipDownload: payload.allowZipDownload !== false,
+          allowZipDownload: Boolean(payload.allowZipDownload),
           passcode: payload.passcode?.trim() || undefined,
           requiresPasscode: Boolean(payload.passcode?.trim()),
           source: 'studio',
@@ -417,33 +435,84 @@ export default async function handler(req, res) {
 
     const chunks = [];
     req.on('data', (c) => chunks.push(c));
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const fullBuffer = Buffer.concat(chunks);
         let uploadedPhotos = [];
+        const useR2 = isR2Configured();
+        let uploadDestination = useR2 ? 'cloudflare-r2' : 'local';
 
         if (boundaryMatch) {
           const boundary = boundaryMatch[1].trim();
           const parts = parseMultipartBuffer(fullBuffer, boundary);
-          for (const part of parts) {
-            if (part.name === 'photos' && part.filename && part.data.length > 0) {
-              const safeName = `${Date.now()}_${slugify(path.parse(part.filename).name)}${path.extname(part.filename) || '.jpg'}`;
-              const destPath = path.resolve(publicUploadsDir, safeName);
-              fs.writeFileSync(destPath, part.data);
+          const photoParts = parts.filter((p) => p.name === 'photos' && p.filename && p.data.length > 0);
+          const previewParts = parts.filter((p) => p.name === 'previews' && p.filename && p.data.length > 0);
+          const widths = parts.filter((p) => p.name === 'widths').map((p) => parseInt(p.data.toString(), 10) || 1800);
+          const heights = parts.filter((p) => p.name === 'heights').map((p) => parseInt(p.data.toString(), 10) || 1200);
 
-              const photoItem = {
-                id: `pp256-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-                filename: part.filename,
-                title: path.parse(part.filename).name.replace(/[-_]+/g, ' '),
-                thumbnailUrl: `/proofing/images/${safeName}`,
-                fullUrl: `/proofing/images/${safeName}`,
-                sizeBytes: part.data.length,
-                mimeType: part.contentType,
-                storage: 'local',
-                capturedAt: new Date().toISOString(),
-              };
-              uploadedPhotos.push(photoItem);
+          for (let i = 0; i < photoParts.length; i++) {
+            const photoPart = photoParts[i];
+            const previewPart = previewParts[i] || photoPart;
+            const w = widths[i] || 1800;
+            const h = heights[i] || 1200;
+            const baseStem = slugify(path.parse(photoPart.filename).name);
+            const ext = path.extname(photoPart.filename) || '.jpg';
+            const originalName = `${Date.now()}_${baseStem}${ext}`;
+            const previewName = `${Date.now()}_${baseStem}_web.jpg`;
+
+            let originalUrl = '';
+            let webPreviewUrl = '';
+            let photoStorage = 'local';
+
+            // 1. Try Cloudflare R2 first if configured
+            if (useR2) {
+              try {
+                // Upload untouched original high-resolution file (for downloads)
+                const origKey = `galleries/${sessionId}/originals/${originalName}`;
+                const r2Orig = await uploadToR2(origKey, photoPart.data, photoPart.contentType);
+                originalUrl = r2Orig.url;
+
+                // Upload compressed web preview (for instant viewing)
+                const webKey = `galleries/${sessionId}/web/${previewName}`;
+                const r2Web = await uploadToR2(webKey, previewPart.data, 'image/jpeg');
+                webPreviewUrl = r2Web.url;
+
+                photoStorage = 'r2';
+                uploadDestination = 'cloudflare-r2';
+              } catch (r2Err) {
+                console.warn('[R2 Upload Warning] Fallback to local storage:', r2Err.message);
+              }
             }
+
+            // 2. Fallback to local storage if R2 unconfigured or failed
+            if (!originalUrl) {
+              const origPath = path.resolve(originalsDir, originalName);
+              fs.writeFileSync(origPath, photoPart.data);
+              originalUrl = `/proofing/images/originals/${originalName}`;
+
+              const webPath = path.resolve(webDir, previewName);
+              fs.writeFileSync(webPath, previewPart.data);
+              webPreviewUrl = `/proofing/images/web/${previewName}`;
+
+              photoStorage = 'local';
+              uploadDestination = 'local';
+            }
+
+            const photoItem = {
+              id: `pp256-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+              filename: photoPart.filename,
+              title: path.parse(photoPart.filename).name.replace(/[-_]+/g, ' '),
+              thumbnailUrl: webPreviewUrl, // Compressed web preview (fast gallery load!)
+              fullUrl: originalUrl,        // Original full-resolution image (download quality!)
+              sizeBytes: photoPart.data.length,
+              previewSizeBytes: previewPart.data.length,
+              width: w,
+              height: h,
+              aspectRatio: w >= h ? (w === h ? 'square' : 'landscape') : 'portrait',
+              storage: photoStorage,
+              capturedAt: new Date().toISOString(),
+            };
+            uploadedPhotos.push(photoItem);
           }
         }
 
@@ -457,7 +526,7 @@ export default async function handler(req, res) {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({
           gallery: galleries[idx],
-          uploadDestination: 'local',
+          uploadDestination,
           uploadedCount: uploadedPhotos.length,
         }));
       } catch (err) {
@@ -478,6 +547,16 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: `Gallery "${sessionId}" not found.` }));
       return;
+    }
+
+    const photoToDelete = (galleries[idx].photos || []).find((p) => p.id === photoId);
+    if (photoToDelete && photoToDelete.storage === 'r2') {
+      try {
+        const safeName = path.basename(photoToDelete.fullUrl);
+        await deleteFromR2(`galleries/${sessionId}/${safeName}`);
+      } catch (err) {
+        console.warn('[R2 Delete Warning]:', err.message);
+      }
     }
 
     galleries[idx].photos = (galleries[idx].photos || []).filter((p) => p.id !== photoId);

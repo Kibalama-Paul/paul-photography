@@ -1,5 +1,32 @@
 [
   {
+    "submissionId": "FAV-MWORTMZX-0CDD",
+    "timestamp": "2026-11-20T09:22:45.549Z",
+    "status": "new",
+    "loggedToSheets": false,
+    "emailSent": false,
+    "sessionId": "kampala-editorial-2026",
+    "sessionName": "Golden Hour Wedding & Editorial Session",
+    "clientName": "hanna",
+    "clientEmail": "kibalamapaul70@gmail.com",
+    "sessionNotes": "",
+    "selectedPhotos": [
+      {
+        "id": "pp256-mwormf84-5hyt",
+        "filename": "8M1A1793.jpg",
+        "title": "8M1A1793",
+        "note": ""
+      },
+      {
+        "id": "pp256-mworpc1g-mqgp",
+        "filename": "8M1A1741.jpg",
+        "title": "8M1A1741",
+        "note": ""
+      }
+    ],
+    "submittedAt": "2026-11-20T09:22:45.549Z"
+  },
+  {
     "submissionId": "FAV-MWNR8CN4-524D",
     "timestamp": "2026-11-19T16:18:26.177Z",
     "status": "new",
